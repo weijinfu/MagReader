@@ -1,0 +1,14 @@
+node_modules
+.next
+.DS_Store
+out
+dist
+coverage
+.env
+.env.local
+data/*.db
+data/*.db-*
+.playwright-cli
+output/playwright
+*.log
+tsconfig.tsbuildinfo
