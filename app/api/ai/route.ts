@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { analyzeTextWithGoogle } from "@/lib/ai";
+import { analyzeTextWithProvider } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +9,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Text is required." }, { status: 400 });
   }
   try {
-    return NextResponse.json({ analysis: await analyzeTextWithGoogle(body.text) });
+    return NextResponse.json({ analysis: await analyzeTextWithProvider(body.text) });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Google Translate failed." },
+      { error: error instanceof Error ? error.message : "Translation failed." },
       { status: 502 }
     );
   }

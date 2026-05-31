@@ -1,5 +1,10 @@
 import type { LearningAnalysis } from "@/lib/types";
+import { baiduTranslate } from "@/lib/baidu-translate";
 import { googleTranslate } from "@/lib/google-translate";
+import { getSettings } from "@/lib/db";
+import { microsoftTranslate } from "@/lib/microsoft-translate";
+import { myMemoryTranslate } from "@/lib/mymemory-translate";
+import { youdaoTranslate } from "@/lib/youdao-translate";
 import { isLikelyWord } from "@/lib/utils";
 
 export function analyzeText(text: string): LearningAnalysis {
@@ -9,6 +14,32 @@ export function analyzeText(text: string): LearningAnalysis {
 
 export async function analyzeTextWithGoogle(text: string): Promise<LearningAnalysis> {
   const clean = text.trim().replace(/\s+/g, " ");
+  const translation = await googleTranslate(clean);
+  return buildAnalysis(clean, translation, "Google Translate");
+}
+
+export async function analyzeTextWithProvider(text: string): Promise<LearningAnalysis> {
+  const clean = text.trim().replace(/\s+/g, " ");
+  const provider = getSettings().translationProvider || process.env.MAGREADER_TRANSLATION_PROVIDER?.toLowerCase() || "mymemory";
+  if (provider === "mymemory") {
+    const translation = await myMemoryTranslate(clean);
+    return buildAnalysis(clean, translation, "MyMemory Translate");
+  }
+  if (provider === "baidu") {
+    const translation = await baiduTranslate(clean);
+    return buildAnalysis(clean, translation, "Baidu Translate");
+  }
+  if (provider === "netease" || provider === "youdao") {
+    const translation = await youdaoTranslate(clean);
+    return buildAnalysis(clean, translation, "NetEase Youdao Translate");
+  }
+  if (provider === "microsoft") {
+    const translation = await microsoftTranslate(clean);
+    return buildAnalysis(clean, translation, "Microsoft Translator");
+  }
+  if (provider === "mock") {
+    return buildAnalysis(clean, wordOrSentenceMockTranslation(clean), "Mock");
+  }
   const translation = await googleTranslate(clean);
   return buildAnalysis(clean, translation, "Google Translate");
 }

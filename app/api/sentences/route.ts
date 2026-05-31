@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteSavedSentence, listSavedSentences, saveSentence, updateReview } from "@/lib/db";
-import { analyzeTextWithGoogle } from "@/lib/ai";
+import { analyzeTextWithProvider } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const text = String(body.text ?? "").trim();
   if (!text) return NextResponse.json({ error: "Sentence is required." }, { status: 400 });
-  const analysis = await analyzeTextWithGoogle(text);
+  const analysis = await analyzeTextWithProvider(text);
   const sentences = saveSentence({
     text,
     translation: body.translation ?? analysis.translation,

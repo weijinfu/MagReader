@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteSavedWord, listSavedWords, saveWord, updateReview } from "@/lib/db";
-import { analyzeTextWithGoogle } from "@/lib/ai";
+import { analyzeTextWithProvider } from "@/lib/ai";
 import { normalizeWord } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const word = normalizeWord(body.word ?? body.text ?? "");
   if (!word) return NextResponse.json({ error: "Word is required." }, { status: 400 });
-  const analysis = await analyzeTextWithGoogle(word);
+  const analysis = await analyzeTextWithProvider(word);
   const words = saveWord({
     word,
     displayWord: body.displayWord ?? body.word ?? word,

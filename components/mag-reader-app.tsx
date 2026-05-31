@@ -5,13 +5,15 @@ import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent
 import type { Article, DashboardPayload, Familiarity, Feed, LearningAnalysis, ReaderSettings, SavedSentence, SavedWord, ViewKey } from "@/lib/types";
 import { clamp, isLikelyWord, sentenceAround, sentenceAtOffset, wordAtOffset } from "@/lib/utils";
 
-const navItems: Array<{ key: ViewKey; label: string }> = [
-  { key: "articles", label: "Articles" },
-  { key: "feeds", label: "Feeds" },
-  { key: "words", label: "Saved Words" },
-  { key: "sentences", label: "Sentences" },
-  { key: "review", label: "Review" },
-  { key: "settings", label: "Settings" }
+type IconName = "articles" | "feeds" | "words" | "sentences" | "review" | "settings" | "refresh" | "list" | "moon" | "sun" | "export";
+
+const navItems: Array<{ key: ViewKey; label: string; shortLabel: string; icon: IconName }> = [
+  { key: "articles", label: "Articles", shortLabel: "Articles", icon: "articles" },
+  { key: "feeds", label: "Feeds", shortLabel: "Feeds", icon: "feeds" },
+  { key: "words", label: "Saved Words", shortLabel: "Words", icon: "words" },
+  { key: "sentences", label: "Sentences", shortLabel: "Sents", icon: "sentences" },
+  { key: "review", label: "Review", shortLabel: "Review", icon: "review" },
+  { key: "settings", label: "Settings", shortLabel: "Settings", icon: "settings" }
 ];
 
 const familiarityOptions: Familiarity[] = ["new", "learning", "familiar", "mastered"];
@@ -60,6 +62,8 @@ export function MagReaderApp() {
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [articleListCollapsed, setArticleListCollapsed] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
   const learningPanelRef = useRef<HTMLElement | null>(null);
 
   const selectedArticle = articles.find((article) => article.id === selectedArticleId) ?? articles[0] ?? null;
@@ -98,6 +102,8 @@ export function MagReaderApp() {
     setSelectedText("");
     setActiveSelection(null);
     setToolbarVisible(false);
+    setMobileSheetOpen(false);
+    setMobileDetailsOpen(false);
     setAnalysis(null);
     clearReaderHighlight();
     window.getSelection()?.removeAllRanges();
@@ -111,7 +117,7 @@ export function MagReaderApp() {
     function handleGlobalPointerDown(event: PointerEvent) {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.closest(".article-body, .selection-toolbar, .learning-panel")) return;
+      if (target.closest(".article-body, .selection-toolbar, .learning-panel, .mobile-learning-sheet")) return;
       clearSelection();
     }
 
@@ -148,6 +154,8 @@ export function MagReaderApp() {
     setSelectedText(clean);
     if (!sameSelection) setAnalysis(null);
     setToolbarVisible(true);
+    setMobileSheetOpen(true);
+    if (!sameSelection) setMobileDetailsOpen(false);
     setActiveSelection((current) => ({
       ...selection,
       text: clean,
@@ -158,6 +166,11 @@ export function MagReaderApp() {
   }
 
   function focusLearningPanel() {
+    if (window.matchMedia("(max-width: 1180px)").matches) {
+      setMobileSheetOpen(true);
+      setMobileDetailsOpen(true);
+      return;
+    }
     learningPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     learningPanelRef.current?.focus({ preventScroll: true });
   }
@@ -172,6 +185,7 @@ export function MagReaderApp() {
     }
     setSelectedText(clean);
     setToolbarVisible(true);
+    setMobileSheetOpen(true);
     setActiveSelection((current) => (current && current.text === clean ? { ...current, status: "loading", message: "Analyzing..." } : current));
     try {
       const response = await fetch("/api/ai", {
@@ -211,6 +225,7 @@ export function MagReaderApp() {
     const currentAnalysis = analysis ?? (await requestAnalysis(selectedText));
     if (!currentAnalysis) return;
     setToolbarVisible(true);
+    setMobileSheetOpen(true);
     setActiveSelection((current) => (current && current.text === selectedText ? { ...current, status: "loading", message: "Saving..." } : current));
     if (saveAs === "word") {
       try {
@@ -296,7 +311,7 @@ export function MagReaderApp() {
   }
 
   return (
-    <div className={`app-shell ${sidebarCollapsed ? "nav-collapsed" : ""}`}>
+    <div className={`app-shell ${sidebarCollapsed ? "nav-collapsed" : ""} ${mobileSheetOpen ? "mobile-sheet-active" : ""}`}>
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         <div className="brand">
           <div className="brand-mark">M</div>
@@ -313,10 +328,12 @@ export function MagReaderApp() {
         <nav className="nav-list" aria-label="Primary">
           {navItems.map((item) => (
             <button key={item.key} className={`nav-button ${view === item.key ? "active" : ""}`} onClick={() => setView(item.key)} aria-label={item.label}>
+              <MenuIcon name={item.icon} className="nav-icon" />
               <span className="nav-abbrev" aria-hidden="true">
                 {item.label.slice(0, 1)}
               </span>
-              <span className="nav-label">{item.label}</span>
+              <span className="nav-label nav-label-full">{item.label}</span>
+              <span className="nav-label nav-label-short">{item.shortLabel}</span>
               {counts[item.key] > 0 ? <span className="nav-count">{counts[item.key]}</span> : null}
             </button>
           ))}
@@ -367,6 +384,18 @@ export function MagReaderApp() {
         focusLearningPanel={focusLearningPanel}
       />
       <LearningPanel refElement={learningPanelRef} selectedText={selectedText} activeSelection={activeSelection} analysis={analysis} requestAnalysis={requestAnalysis} speak={speak} saveSelection={saveSelection} />
+      <MobileLearningSheet
+        open={mobileSheetOpen}
+        selectedText={selectedText}
+        activeSelection={activeSelection}
+        analysis={analysis}
+        detailsOpen={mobileDetailsOpen}
+        setDetailsOpen={setMobileDetailsOpen}
+        close={() => setMobileSheetOpen(false)}
+        requestAnalysis={requestAnalysis}
+        speak={speak}
+        saveSelection={saveSelection}
+      />
       {toast ? <div className="toast">{toast}</div> : null}
     </div>
   );
@@ -396,12 +425,15 @@ function Topbar({
       <input className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search articles, saved words, or sentences" />
       <div className="toolbar">
         <button className="toolbar-button" onClick={refreshFeeds}>
+          <MenuIcon name="refresh" className="button-icon" />
           Refresh RSS
         </button>
         <button className="toolbar-button" onClick={() => setArticleListCollapsed(!articleListCollapsed)}>
+          <MenuIcon name="list" className="button-icon" />
           {articleListCollapsed ? "Show list" : "Hide list"}
         </button>
         <button className="toolbar-button" onClick={() => updateSettings({ theme: settings.theme === "dark" ? "light" : "dark" })}>
+          <MenuIcon name={settings.theme === "dark" ? "sun" : "moon"} className="button-icon" />
           {settings.theme === "dark" ? "Light" : "Dark"}
         </button>
         <button className="icon-button" title="Smaller font" onClick={() => updateSettings({ fontSize: Math.max(16, settings.fontSize - 1) })}>
@@ -411,11 +443,129 @@ function Topbar({
           A+
         </button>
         <a className="toolbar-button" href={exportUrl}>
+          <MenuIcon name="export" className="button-icon" />
           Export
         </a>
       </div>
     </header>
   );
+}
+
+function MenuIcon({ name, className = "" }: { name: IconName; className?: string }) {
+  const common = {
+    className,
+    width: 18,
+    height: 18,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true
+  };
+
+  switch (name) {
+    case "articles":
+      return (
+        <svg {...common}>
+          <path d="M4 19.5V5a2 2 0 0 1 2-2h10.5A3.5 3.5 0 0 1 20 6.5V21H6a2 2 0 0 1-2-1.5Z" />
+          <path d="M8 7h8" />
+          <path d="M8 11h8" />
+          <path d="M8 15h5" />
+        </svg>
+      );
+    case "feeds":
+      return (
+        <svg {...common}>
+          <path d="M4 11a9 9 0 0 1 9 9" />
+          <path d="M4 5a15 15 0 0 1 15 15" />
+          <circle cx="6" cy="18" r="2" />
+        </svg>
+      );
+    case "words":
+      return (
+        <svg {...common}>
+          <path d="M4 19V5h6a4 4 0 0 1 0 8H4" />
+          <path d="M14 19V9" />
+          <path d="M14 13h2a3 3 0 0 1 0 6h-2" />
+        </svg>
+      );
+    case "sentences":
+      return (
+        <svg {...common}>
+          <path d="M5 6h14" />
+          <path d="M5 10h14" />
+          <path d="M5 14h9" />
+          <path d="M5 18h6" />
+        </svg>
+      );
+    case "review":
+      return (
+        <svg {...common}>
+          <path d="M6 3v4" />
+          <path d="M18 3v4" />
+          <path d="M4 9h16" />
+          <rect x="4" y="5" width="16" height="16" rx="2" />
+          <path d="m9 15 2 2 4-5" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg {...common}>
+          <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z" />
+        </svg>
+      );
+    case "refresh":
+      return (
+        <svg {...common}>
+          <path d="M20 12a8 8 0 0 1-13.7 5.6" />
+          <path d="M4 12A8 8 0 0 1 17.7 6.4" />
+          <path d="M17 2v5h5" />
+          <path d="M7 22v-5H2" />
+        </svg>
+      );
+    case "list":
+      return (
+        <svg {...common}>
+          <path d="M8 6h13" />
+          <path d="M8 12h13" />
+          <path d="M8 18h13" />
+          <path d="M3 6h.01" />
+          <path d="M3 12h.01" />
+          <path d="M3 18h.01" />
+        </svg>
+      );
+    case "moon":
+      return (
+        <svg {...common}>
+          <path d="M20 14.5A7.5 7.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" />
+        </svg>
+      );
+    case "sun":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.9 4.9 1.4 1.4" />
+          <path d="m17.7 17.7 1.4 1.4" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m4.9 19.1 1.4-1.4" />
+          <path d="m17.7 6.3 1.4-1.4" />
+        </svg>
+      );
+    case "export":
+      return (
+        <svg {...common}>
+          <path d="M12 3v12" />
+          <path d="m7 8 5-5 5 5" />
+          <path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+        </svg>
+      );
+  }
 }
 
 function ArticleWorkspace({
@@ -1059,6 +1209,119 @@ function LearningPanel({
   );
 }
 
+function MobileLearningSheet({
+  open,
+  selectedText,
+  activeSelection,
+  analysis,
+  detailsOpen,
+  setDetailsOpen,
+  close,
+  requestAnalysis,
+  speak,
+  saveSelection
+}: {
+  open: boolean;
+  selectedText: string;
+  activeSelection: ActiveSelection | null;
+  analysis: LearningAnalysis | null;
+  detailsOpen: boolean;
+  setDetailsOpen: (open: boolean) => void;
+  close: () => void;
+  requestAnalysis: (text?: string) => Promise<LearningAnalysis | null>;
+  speak: (text: string) => void;
+  saveSelection: (kind?: "word" | "sentence") => void;
+}) {
+  if (!open || !selectedText || !activeSelection) return null;
+  const isLoading = activeSelection.status === "loading";
+  const isError = activeSelection.status === "error";
+
+  return (
+    <section className={`mobile-learning-sheet ${activeSelection.status}`} aria-label="Mobile learning panel">
+      <div className="mobile-sheet-handle" aria-hidden="true" />
+      <div className="mobile-sheet-header">
+        <div>
+          <div className="panel-title">Selection</div>
+          <p className={`mobile-selected-text ${detailsOpen ? "expanded" : ""}`}>{selectedText}</p>
+        </div>
+        <button className="mobile-sheet-close" onClick={close} aria-label="Close learning panel">
+          ×
+        </button>
+      </div>
+      <SelectionStateNote activeSelection={activeSelection} />
+
+      {!analysis ? (
+        <>
+          <div className="mobile-sheet-actions">
+            <button className="primary-button" disabled={isLoading} onClick={() => requestAnalysis(selectedText)}>
+              Translate
+            </button>
+            <button className="toolbar-button" disabled={isLoading} onClick={() => speak(selectedText)}>
+              Speak
+            </button>
+            <button className="toolbar-button" disabled={isLoading} onClick={() => saveSelection()}>
+              Save
+            </button>
+          </div>
+          <p className={`mobile-sheet-message ${isError ? "error" : ""}`}>{activeSelection.message ?? "Ready"}</p>
+        </>
+      ) : (
+        <>
+          <div className="mobile-translation-card">
+            <div className="row-meta">
+              <span>{analysis.translationProvider}</span>
+            </div>
+            <p>{analysis.translation}</p>
+          </div>
+          <div className="mobile-sheet-actions">
+            <button className="primary-button" onClick={() => speak(selectedText)}>
+              Speak
+            </button>
+            <button className="toolbar-button" onClick={() => saveSelection()}>
+              Save
+            </button>
+            <button className="toolbar-button" onClick={() => setDetailsOpen(!detailsOpen)}>
+              {detailsOpen ? "Hide" : "Details"}
+            </button>
+          </div>
+          {detailsOpen ? (
+            <div className="mobile-sheet-details">
+              <div className="analysis-block">
+                <h4>Explanation</h4>
+                <p>{analysis.explanation}</p>
+              </div>
+              <div className="analysis-block">
+                <h4>Difficulty</h4>
+                <p>
+                  {analysis.difficulty.level} · {analysis.difficulty.score}/100 · {analysis.difficulty.reason}
+                </p>
+              </div>
+              <div className="analysis-block">
+                <h4>Phrase Notes</h4>
+                <div className="pill-row">
+                  {analysis.phrases.map((phrase) => (
+                    <span className="pill" key={phrase.phrase} title={phrase.meaning}>
+                      {phrase.phrase}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="analysis-block">
+                <h4>Structure</h4>
+                <ul>
+                  {analysis.structure.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
 function SelectionStateNote({ activeSelection }: { activeSelection: ActiveSelection | null }) {
   if (!activeSelection) return null;
   const savedMessage = activeSelection.savedAs ? `Saved as ${activeSelection.savedAs}` : "";
@@ -1453,6 +1716,21 @@ function SettingsView({ settings, updateSettings }: { settings: ReaderSettings; 
         </div>
       </div>
       <div className="saved-grid">
+        <label className="saved-row">
+          <span className="section-label">Translation engine</span>
+          <select
+            className="select"
+            value={settings.translationProvider}
+            onChange={(event) => updateSettings({ translationProvider: event.target.value as ReaderSettings["translationProvider"] })}
+          >
+            <option value="mymemory">MyMemory Free</option>
+            <option value="baidu">Baidu API</option>
+            <option value="netease">NetEase Youdao API</option>
+            <option value="microsoft">Microsoft Translator</option>
+            <option value="google">Google Public</option>
+            <option value="mock">Mock</option>
+          </select>
+        </label>
         <label className="saved-row">
           <span className="section-label">Font</span>
           <select className="select" value={settings.fontFamily} onChange={(event) => updateSettings({ fontFamily: event.target.value })}>

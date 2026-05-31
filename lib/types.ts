@@ -61,6 +61,7 @@ export type SavedSentence = {
 
 export type ReaderSettings = {
   theme: "light" | "dark";
+  translationProvider: TranslationProvider;
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
@@ -68,6 +69,8 @@ export type ReaderSettings = {
   paragraphGap: number;
   speechRate: number;
 };
+
+export type TranslationProvider = "mymemory" | "baidu" | "netease" | "youdao" | "microsoft" | "google" | "mock";
 
 export type LearningAnalysis = {
   kind: "word" | "sentence";

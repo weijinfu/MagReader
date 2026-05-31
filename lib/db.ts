@@ -130,6 +130,7 @@ function seedDefaults(database: Database.Database) {
 
 const defaultSettings: ReaderSettings = {
   theme: "light",
+  translationProvider: "mymemory",
   fontFamily: "Georgia, 'Times New Roman', serif",
   fontSize: 20,
   lineHeight: 1.75,
