@@ -87,6 +87,7 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 10:35:53 CST: GitHub and tecent sync completed. Committed changes as `4f32281` on `main` and pushed to `origin/main`. Remote deployment checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200 with no-cache headers, public HTML contains `nav-icon` and `mobile-learning-sheet`, and public `/api/ai` returns `MyMemory Translate`.
 - 2026-05-31 10:42:10 CST: Added regression coverage for settings persistence, duplicate saved-word count updates, review familiarity transitions, and persisted mock translation-provider behavior. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (19 tests), and `npm run build`.
 - 2026-05-31 11:08:06 CST: Synced the expanded regression tests to tecent and verified the remote test suite in `/home/ubuntu/apps/MagReader`: `npm test` passed with 19 tests.
+- 2026-05-31 11:17:01 CST: Added React/JSDOM UI smoke tests and updated Vitest to include `.test.tsx`. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (21 tests), and `npm run build`. The UI smoke tests verify primary navigation icons, toolbar action icons, reader rendering, dark-mode toolbar action, and article-list collapse behavior.
 
 ## Feature Checklist
 
@@ -128,6 +129,7 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - [x] Menu icons for primary navigation
 - [x] Toolbar icons for common actions
 - [x] Tablet/narrow-desktop learning drawer fallback
+- [x] React/JSDOM UI smoke tests for navigation and toolbar behavior
 - [x] Long-sentence analysis mock
 - [x] Phrase explanation mock
 - [x] Difficulty rating mock
@@ -178,3 +180,4 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 10:35:53 CST: Synced the current optimized build to GitHub and tecent. Public URL verification passed for no-cache headers, deployed icon/mobile-sheet styles, active service, and translation API health.
 - 2026-05-31 10:42:10 CST: Strengthened functional test coverage around persistence and learning workflow state. Added tests for reader settings, saved-word repeat count behavior, word/sentence review status updates, and mock translation provider selection.
 - 2026-05-31 11:08:06 CST: Verified the new regression suite on tecent after syncing the test files; remote `npm test` now passes 19 tests.
+- 2026-05-31 11:17:01 CST: Added UI smoke coverage for the rendered React app. The new test mounts `MagReaderApp` in JSDOM with mocked dashboard/settings APIs and checks that menu/toolbar icons render and that toolbar actions update theme and article-list layout state.
