@@ -91,6 +91,52 @@ describe("saved item deletion", () => {
     expect(listArticles().map((article) => article.url)).toContain("https://example.com/returning");
   });
 
+  it("omits articles that have no usable source", async () => {
+    const { listArticles, upsertArticle } = await loadDbModule();
+    upsertArticle({
+      feedId: null,
+      guid: "orphan",
+      url: "https://example.com/orphan",
+      title: "Orphan Article",
+      author: null,
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "No source",
+      contentHtml: "<p>No source article.</p>",
+      contentText: "No source article.",
+      difficulty: "A2"
+    });
+    upsertArticle({
+      feedId: null,
+      guid: "unknown-source",
+      url: "https://example.com/unknown-source",
+      title: "Unknown Source Article",
+      author: "Unknown source",
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "Unknown source",
+      contentHtml: "<p>Unknown source article.</p>",
+      contentText: "Unknown source article.",
+      difficulty: "A2"
+    });
+    upsertArticle({
+      feedId: null,
+      guid: "author-source",
+      url: "https://example.com/author-source",
+      title: "Author Source Article",
+      author: "Example Author",
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "Has author",
+      contentHtml: "<p>Author source article.</p>",
+      contentText: "Author source article.",
+      difficulty: "A2"
+    });
+
+    const urls = listArticles().map((article) => article.url);
+
+    expect(urls).not.toContain("https://example.com/orphan");
+    expect(urls).not.toContain("https://example.com/unknown-source");
+    expect(urls).toContain("https://example.com/author-source");
+  });
+
   it("persists reader settings without losing defaults", async () => {
     const { getSettings, saveSettings } = await loadDbModule();
 

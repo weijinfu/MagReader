@@ -207,7 +207,7 @@ export function listArticles(): Article[] {
        ORDER BY COALESCE(articles.published_at, articles.created_at) DESC`
     )
     .all() as DbArticle[];
-  return rows.map(mapArticle);
+  return rows.map(mapArticle).filter(hasArticleSource);
 }
 
 export function getArticle(id: number): Article | null {
@@ -449,6 +449,15 @@ function mapArticle(row: DbArticle): Article {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function hasArticleSource(article: Article) {
+  return isMeaningfulSource(article.feedTitle) || isMeaningfulSource(article.author);
+}
+
+function isMeaningfulSource(source: string | null) {
+  const label = source?.trim().toLowerCase();
+  return Boolean(label && label !== "unknown source");
 }
 
 function mapSavedWord(row: DbSavedWord): SavedWord {
