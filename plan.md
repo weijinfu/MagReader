@@ -93,6 +93,7 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:51:07 CST: Expanded UI smoke coverage for the core mobile/narrow-screen reading flow. The new test clicks an article sentence, verifies the learning sheet opens with the selected text and stable highlight, clicks Translate, and verifies the translated result stays visible in the learning sheet. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (22 tests), and `npm run build`.
 - 2026-05-31 11:57:02 CST: Synced the expanded learning-sheet UI smoke test to tecent and verified remote `npm test` passes with 22 tests. Public homepage still returns HTTP 200 with no-cache headers, and public `/api/ai` returns `MyMemory Translate`.
 - 2026-05-31 11:59:27 CST: Updated verification policy per user request: automated tests should run locally only. Future tecent work should not run remote `npm test`; remote verification should check deployment/build/service/public HTTP/API health only.
+- 2026-05-31 12:04:02 CST: Added local API route regression coverage for Settings, Words, and Sentences routes. Tests cover settings GET/PATCH, word create/update/delete with invalid delete validation, and sentence create/update/delete with invalid delete validation. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (25 tests), and `npm run build`.
 
 ## Feature Checklist
 
@@ -190,3 +191,4 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:51:07 CST: Added UI smoke coverage for selecting a sentence and translating it through the learning sheet, including JSDOM shims for the browser Range APIs used by reader highlighting.
 - 2026-05-31 11:57:02 CST: Verified the sentence-selection learning-sheet smoke test remotely on tecent; remote test suite now passes 22 tests.
 - 2026-05-31 11:59:27 CST: Recorded the new user preference that tecent should not run automated tests going forward; local tests are sufficient, with remote checks reserved for public deployment health.
+- 2026-05-31 12:04:02 CST: Added local route-level regression tests for key API behavior so endpoint validation and response shapes are covered in addition to DB helper tests.
