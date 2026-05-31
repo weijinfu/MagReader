@@ -89,6 +89,7 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:08:06 CST: Synced the expanded regression tests to tecent and verified the remote test suite in `/home/ubuntu/apps/MagReader`: `npm test` passed with 19 tests.
 - 2026-05-31 11:17:01 CST: Added React/JSDOM UI smoke tests and updated Vitest to include `.test.tsx`. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (21 tests), and `npm run build`. The UI smoke tests verify primary navigation icons, toolbar action icons, reader rendering, dark-mode toolbar action, and article-list collapse behavior.
 - 2026-05-31 11:23:44 CST: Synced the UI smoke test and Vitest config to tecent. Remote `npm test` passed with 21 tests in `/home/ubuntu/apps/MagReader`; public homepage still returns HTTP 200 with no-cache headers and contains deployed `nav-icon` and `mobile-learning-sheet` markup/styles.
+- 2026-05-31 11:51:07 CST: Expanded UI smoke coverage for the core mobile/narrow-screen reading flow. The new test clicks an article sentence, verifies the learning sheet opens with the selected text and stable highlight, clicks Translate, and verifies the translated result stays visible in the learning sheet. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (22 tests), and `npm run build`.
 
 ## Feature Checklist
 
@@ -183,3 +184,4 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:08:06 CST: Verified the new regression suite on tecent after syncing the test files; remote `npm test` now passes 19 tests.
 - 2026-05-31 11:17:01 CST: Added UI smoke coverage for the rendered React app. The new test mounts `MagReaderApp` in JSDOM with mocked dashboard/settings APIs and checks that menu/toolbar icons render and that toolbar actions update theme and article-list layout state.
 - 2026-05-31 11:23:44 CST: Verified the UI smoke suite on tecent after syncing `vitest.config.ts` and `tests/ui-smoke.test.tsx`; remote `npm test` now passes 21 tests.
+- 2026-05-31 11:51:07 CST: Added UI smoke coverage for selecting a sentence and translating it through the learning sheet, including JSDOM shims for the browser Range APIs used by reader highlighting.

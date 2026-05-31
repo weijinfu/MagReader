@@ -97,6 +97,8 @@ beforeEach(() => {
   });
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Element = dom.window.Element;
+  globalThis.Node = dom.window.Node;
+  globalThis.NodeFilter = dom.window.NodeFilter;
   globalThis.PointerEvent = dom.window.PointerEvent;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.SpeechSynthesisUtterance = vi.fn() as unknown as typeof SpeechSynthesisUtterance;
@@ -111,6 +113,30 @@ beforeEach(() => {
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()
+    }))
+  });
+  Object.defineProperty(dom.window.document, "caretRangeFromPoint", {
+    configurable: true,
+    value: vi.fn(() => {
+      const target = dom.window.document.querySelector("[data-caret-target]") ?? dom.window.document.querySelector(".article-body p");
+      if (!target?.firstChild) return null;
+      const range = dom.window.document.createRange();
+      range.setStart(target.firstChild, 0);
+      range.collapse(true);
+      return range;
+    })
+  });
+  Object.defineProperty(dom.window.Range.prototype, "getBoundingClientRect", {
+    configurable: true,
+    value: vi.fn(() => ({
+      bottom: 40,
+      height: 20,
+      left: 10,
+      right: 220,
+      top: 20,
+      width: 210,
+      x: 10,
+      y: 20
     }))
   });
 
@@ -200,5 +226,37 @@ describe("MagReader UI smoke", () => {
     });
     await waitFor(() => container.querySelector(".content-grid")?.classList.contains("list-collapsed") ?? false);
     expect(container.querySelector(".content-grid")?.classList.contains("list-collapsed")).toBe(true);
+  });
+
+  it("opens the learning sheet from a sentence selection and keeps translation visible", async () => {
+    await renderApp();
+
+    const paragraph = container.querySelector(".article-body p") as HTMLParagraphElement;
+    expect(paragraph).toBeTruthy();
+    paragraph.setAttribute("data-caret-target", "true");
+
+    await act(async () => {
+      paragraph.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, clientX: 10, clientY: 10 }));
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    });
+    await waitFor(() => Boolean(container.querySelector(".mobile-learning-sheet")));
+
+    const sheetBefore = container.querySelector(".mobile-learning-sheet");
+    expect(sheetBefore?.textContent).toContain("Reading slowly helps learners notice grammar.");
+    expect(sheetBefore?.textContent).toContain("Translate");
+    expect(container.querySelectorAll(".reader-selection-highlight")).toHaveLength(1);
+
+    const translateButton = Array.from(sheetBefore?.querySelectorAll("button") ?? []).find((button) => button.textContent === "Translate");
+    expect(translateButton).toBeDefined();
+    await act(async () => {
+      translateButton?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+    await waitFor(() => container.querySelector(".mobile-learning-sheet")?.textContent?.includes("慢慢阅读可以帮助学习者注意语法。") ?? false);
+
+    const sheetAfter = container.querySelector(".mobile-learning-sheet");
+    expect(sheetAfter?.textContent).toContain("Mock");
+    expect(sheetAfter?.textContent).toContain("Details");
+    expect(container.querySelector(".app-shell")?.classList.contains("mobile-sheet-active")).toBe(true);
+    expect(container.querySelectorAll(".reader-selection-highlight")).toHaveLength(1);
   });
 });
