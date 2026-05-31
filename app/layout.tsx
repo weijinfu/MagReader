@@ -143,6 +143,30 @@ const mobileCacheBypassCss = `
     justify-content: stretch !important;
   }
 
+  .feed-form {
+    gap: 10px !important;
+  }
+
+  .feed-url-input {
+    min-height: 46px !important;
+    font-size: 16px !important;
+    line-height: 1.3 !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    touch-action: manipulation !important;
+  }
+
+  .feed-form-actions {
+    display: grid !important;
+    grid-template-columns: minmax(86px, 0.5fr) minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .feed-form-actions .small-button,
+  .feed-form-actions .primary-button {
+    min-height: 42px !important;
+  }
+
   .content-grid,
   .content-grid.list-collapsed {
     gap: 12px !important;

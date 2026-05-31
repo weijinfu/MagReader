@@ -1372,6 +1372,20 @@ function FeedsView({ feeds, reload, setToast }: { feeds: Feed[]; reload: () => P
     setToast("Feed removed.");
   }
 
+  async function pasteFeedUrl() {
+    try {
+      const text = await navigator.clipboard?.readText();
+      if (!text?.trim()) {
+        setToast("Clipboard is empty.");
+        return;
+      }
+      setUrl(text.trim());
+      setToast("RSS URL pasted.");
+    } catch {
+      setToast("Clipboard paste is unavailable. Long-press the field and choose Paste.");
+    }
+  }
+
   return (
     <section className="page-panel">
       <div className="page-header">
@@ -1380,12 +1394,39 @@ function FeedsView({ feeds, reload, setToast }: { feeds: Feed[]; reload: () => P
           <p className="muted">Add RSS sources for English articles. The server checks enabled feeds every 30 minutes while running.</p>
         </div>
       </div>
-      <div className="feed-form">
-        <input className="input" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/rss.xml" />
-        <button className="primary-button" onClick={addFeed}>
-          Add Feed
-        </button>
-      </div>
+      <form
+        className="feed-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void addFeed();
+        }}
+      >
+        <input
+          className="input feed-url-input"
+          type="url"
+          inputMode="url"
+          enterKeyHint="done"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          onPaste={(event) => {
+            event.preventDefault();
+            setUrl(event.clipboardData.getData("text").trim());
+          }}
+          placeholder="https://example.com/rss.xml"
+          aria-label="RSS feed URL"
+        />
+        <div className="feed-form-actions">
+          <button className="small-button" type="button" onClick={pasteFeedUrl}>
+            Paste
+          </button>
+          <button className="primary-button" type="submit">
+            Add Feed
+          </button>
+        </div>
+      </form>
       <div className="feed-grid" style={{ marginTop: 16 }}>
         {feeds.map((feed) => (
           <div className="feed-row" key={feed.id}>

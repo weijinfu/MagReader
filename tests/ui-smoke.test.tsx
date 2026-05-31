@@ -228,6 +228,28 @@ describe("MagReader UI smoke", () => {
     expect(container.querySelector(".content-grid")?.classList.contains("list-collapsed")).toBe(true);
   });
 
+  it("renders a mobile-friendly RSS URL input with a paste action", async () => {
+    await renderApp();
+
+    const feedsButton = Array.from(container.querySelectorAll(".nav-button")).find((button) => button.textContent?.includes("Feeds"));
+    expect(feedsButton).toBeDefined();
+
+    await act(async () => {
+      feedsButton?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+    await waitFor(() => Boolean(container.querySelector(".feed-url-input")));
+
+    const input = container.querySelector(".feed-url-input") as HTMLInputElement;
+    const pasteButton = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Paste");
+
+    expect(input.type).toBe("url");
+    expect(input.inputMode).toBe("url");
+    expect(input.getAttribute("autocapitalize")).toBe("none");
+    expect(input.getAttribute("autocorrect")).toBe("off");
+    expect(input.getAttribute("spellcheck")).toBe("false");
+    expect(pasteButton).toBeDefined();
+  });
+
   it("opens the learning sheet from a sentence selection and keeps translation visible", async () => {
     await renderApp();
 
