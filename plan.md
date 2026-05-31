@@ -52,6 +52,7 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - Server-side scheduled RSS refresh runs only while the app server process is active.
 - The app is implemented as a local-first single-user MVP; multi-user auth/sync is intentionally out of scope.
 - Browser verification for destructive delete confirmation is intentionally limited because it permanently removes local saved learning data; delete behavior is covered by database/API implementation and automated tests.
+- User preference as of 2026-05-31: do not run automated test suites on tecent. Future validation should run tests locally only; tecent checks should be limited to deployment/build/service/public health checks unless explicitly requested otherwise.
 
 ## Verification Status
 
@@ -91,6 +92,7 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:23:44 CST: Synced the UI smoke test and Vitest config to tecent. Remote `npm test` passed with 21 tests in `/home/ubuntu/apps/MagReader`; public homepage still returns HTTP 200 with no-cache headers and contains deployed `nav-icon` and `mobile-learning-sheet` markup/styles.
 - 2026-05-31 11:51:07 CST: Expanded UI smoke coverage for the core mobile/narrow-screen reading flow. The new test clicks an article sentence, verifies the learning sheet opens with the selected text and stable highlight, clicks Translate, and verifies the translated result stays visible in the learning sheet. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (22 tests), and `npm run build`.
 - 2026-05-31 11:57:02 CST: Synced the expanded learning-sheet UI smoke test to tecent and verified remote `npm test` passes with 22 tests. Public homepage still returns HTTP 200 with no-cache headers, and public `/api/ai` returns `MyMemory Translate`.
+- 2026-05-31 11:59:27 CST: Updated verification policy per user request: automated tests should run locally only. Future tecent work should not run remote `npm test`; remote verification should check deployment/build/service/public HTTP/API health only.
 
 ## Feature Checklist
 
@@ -187,3 +189,4 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:23:44 CST: Verified the UI smoke suite on tecent after syncing `vitest.config.ts` and `tests/ui-smoke.test.tsx`; remote `npm test` now passes 21 tests.
 - 2026-05-31 11:51:07 CST: Added UI smoke coverage for selecting a sentence and translating it through the learning sheet, including JSDOM shims for the browser Range APIs used by reader highlighting.
 - 2026-05-31 11:57:02 CST: Verified the sentence-selection learning-sheet smoke test remotely on tecent; remote test suite now passes 22 tests.
+- 2026-05-31 11:59:27 CST: Recorded the new user preference that tecent should not run automated tests going forward; local tests are sufficient, with remote checks reserved for public deployment health.
