@@ -91,8 +91,9 @@ describe("saved item deletion", () => {
     expect(listArticles().map((article) => article.url)).toContain("https://example.com/returning");
   });
 
-  it("omits articles that have no usable source", async () => {
-    const { listArticles, upsertArticle } = await loadDbModule();
+  it("clears articles that do not belong to a current feed", async () => {
+    const { createFeed, getArticle, listArticles, upsertArticle } = await loadDbModule();
+    const feed = createFeed({ title: "Example Feed", url: "https://example.com/rss.xml" })[0];
     upsertArticle({
       feedId: null,
       guid: "orphan",
@@ -107,18 +108,6 @@ describe("saved item deletion", () => {
     });
     upsertArticle({
       feedId: null,
-      guid: "unknown-source",
-      url: "https://example.com/unknown-source",
-      title: "Unknown Source Article",
-      author: "Unknown source",
-      publishedAt: "2026-05-31T00:00:00.000Z",
-      excerpt: "Unknown source",
-      contentHtml: "<p>Unknown source article.</p>",
-      contentText: "Unknown source article.",
-      difficulty: "A2"
-    });
-    upsertArticle({
-      feedId: null,
       guid: "author-source",
       url: "https://example.com/author-source",
       title: "Author Source Article",
@@ -129,12 +118,61 @@ describe("saved item deletion", () => {
       contentText: "Author source article.",
       difficulty: "A2"
     });
+    upsertArticle({
+      feedId: feed.id,
+      guid: "feed-source",
+      url: "https://example.com/feed-source",
+      title: "Feed Source Article",
+      author: null,
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "Has feed",
+      contentHtml: "<p>Feed source article.</p>",
+      contentText: "Feed source article.",
+      difficulty: "A2"
+    });
 
     const urls = listArticles().map((article) => article.url);
 
     expect(urls).not.toContain("https://example.com/orphan");
-    expect(urls).not.toContain("https://example.com/unknown-source");
-    expect(urls).toContain("https://example.com/author-source");
+    expect(urls).not.toContain("https://example.com/author-source");
+    expect(urls).toContain("https://example.com/feed-source");
+    expect(getArticle(1)).toBeNull();
+  });
+
+  it("assigns an existing URL to the feed when RSS refresh sees it again", async () => {
+    const { createFeed, listArticles, upsertArticle } = await loadDbModule();
+    upsertArticle({
+      feedId: null,
+      guid: "orphan",
+      url: "https://example.com/reclaimed",
+      title: "Orphan Article",
+      author: null,
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "No source",
+      contentHtml: "<p>No source article.</p>",
+      contentText: "No source article.",
+      difficulty: "A2"
+    });
+    const feed = createFeed({ title: "Example Feed", url: "https://example.com/rss.xml" })[0];
+
+    upsertArticle({
+      feedId: feed.id,
+      guid: "reclaimed",
+      url: "https://example.com/reclaimed",
+      title: "Reclaimed Article",
+      author: null,
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "Has feed now",
+      contentHtml: "<p>Feed article.</p>",
+      contentText: "Feed article.",
+      difficulty: "A2"
+    });
+
+    const articles = listArticles();
+
+    expect(articles).toHaveLength(1);
+    expect(articles[0].url).toBe("https://example.com/reclaimed");
+    expect(articles[0].feedTitle).toBe("Example Feed");
   });
 
   it("persists reader settings without losing defaults", async () => {

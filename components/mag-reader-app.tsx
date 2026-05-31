@@ -603,13 +603,11 @@ function ArticleWorkspace({
           </div>
           <div className="article-list">
             {filtered.map((article) => {
-              const sourceLabel = articleSourceLabel(article.feedTitle) ?? articleSourceLabel(article.author);
-
               return (
                 <button key={article.id} className={`article-row ${selectedArticle?.id === article.id ? "active" : ""}`} onClick={() => setSelectedArticleId(article.id)}>
                   <h3 className="row-title">{article.title}</h3>
                   <div className="row-meta">
-                    {sourceLabel ? <span>{sourceLabel}</span> : null}
+                    {article.feedTitle ? <span>Source: {article.feedTitle}</span> : null}
                     <span>{article.difficulty}</span>
                     <span>{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : "No date"}</span>
                   </div>
@@ -650,7 +648,6 @@ function Reader({
 }) {
   const articleBodyRef = useRef<HTMLDivElement | null>(null);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sourceLabel = articleSourceLabel(article.author) ?? articleSourceLabel(article.feedTitle);
 
   useLayoutEffect(() => {
     const body = articleBodyRef.current;
@@ -817,7 +814,7 @@ function Reader({
     >
       <h1>{article.title}</h1>
       <div className="reader-meta">
-        {sourceLabel ? <span>{sourceLabel}</span> : null}
+        {article.feedTitle ? <span>Source: {article.feedTitle}</span> : null}
         <span>{article.difficulty}</span>
         <button className="small-button" onClick={() => speak(article.title)}>
           Pronounce title
@@ -834,12 +831,6 @@ function Reader({
       />
     </article>
   );
-}
-
-function articleSourceLabel(source: string | null | undefined) {
-  const label = source?.trim();
-  if (!label || label.toLowerCase() === "unknown source") return null;
-  return label;
 }
 
 function SelectionToolbar({

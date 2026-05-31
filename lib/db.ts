@@ -98,34 +98,6 @@ function migrate(database: Database.Database) {
       value TEXT NOT NULL
     );
   `);
-
-  seedDefaults(database);
-}
-
-function seedDefaults(database: Database.Database) {
-  const count = database.prepare("SELECT COUNT(*) AS count FROM articles").get() as { count: number };
-  if (count.count > 0) return;
-  const now = nowIso();
-  database
-    .prepare(
-      `INSERT INTO articles
-      (feed_id, guid, url, title, author, published_at, excerpt, content_html, content_text, difficulty, status, favorite, created_at, updated_at)
-      VALUES (@feedId, @guid, @url, @title, @author, @publishedAt, @excerpt, @contentHtml, @contentText, @difficulty, 'unread', 0, @now, @now)`
-    )
-    .run({
-      feedId: null,
-      guid: "sample-magreader",
-      url: "https://example.com/magreader-sample",
-      title: "Why Reading Slowly Can Make Difficult English Easier",
-      author: "MagReader Sample",
-      publishedAt: now,
-      excerpt: "A sample article for testing selection, explanation, saving, and pronunciation.",
-      difficulty: "B2",
-      contentHtml: `<p>When learners read slowly, they are not simply moving through a text at a reduced speed. They are creating room for noticing grammar, collocations, and the relationship between ideas.</p><p>A difficult sentence often becomes manageable once it is divided into clauses. The main clause tells you what happened, while dependent clauses explain time, reason, contrast, or condition.</p><p>Instead of translating every word immediately, strong readers ask what role each phrase plays in the sentence. This habit makes long articles feel less intimidating and helps vocabulary stay connected to real context.</p>`,
-      contentText:
-        "When learners read slowly, they are not simply moving through a text at a reduced speed. They are creating room for noticing grammar, collocations, and the relationship between ideas. A difficult sentence often becomes manageable once it is divided into clauses. The main clause tells you what happened, while dependent clauses explain time, reason, contrast, or condition. Instead of translating every word immediately, strong readers ask what role each phrase plays in the sentence. This habit makes long articles feel less intimidating and helps vocabulary stay connected to real context.",
-      now
-    });
 }
 
 const defaultSettings: ReaderSettings = {
@@ -198,16 +170,17 @@ export function deleteFeed(id: number) {
 }
 
 export function listArticles(): Article[] {
+  clearUnsubscribedArticles();
   const rows = getDb()
     .prepare(
       `SELECT articles.*, feeds.title AS feed_title
        FROM articles
-       LEFT JOIN feeds ON feeds.id = articles.feed_id
+       INNER JOIN feeds ON feeds.id = articles.feed_id
        WHERE articles.status != 'archived'
        ORDER BY COALESCE(articles.published_at, articles.created_at) DESC`
     )
     .all() as DbArticle[];
-  return rows.map(mapArticle).filter(hasArticleSource);
+  return rows.map(mapArticle);
 }
 
 export function getArticle(id: number): Article | null {
@@ -242,6 +215,8 @@ export function upsertArticle(input: {
       VALUES (@feedId, @guid, @url, @title, @author, @publishedAt, @excerpt, @contentHtml, @contentText, @difficulty, 'unread', 0, @now, @now)
       ON CONFLICT(url) DO UPDATE SET
         title = excluded.title,
+        feed_id = excluded.feed_id,
+        guid = excluded.guid,
         author = excluded.author,
         published_at = excluded.published_at,
         excerpt = excluded.excerpt,
@@ -252,6 +227,20 @@ export function upsertArticle(input: {
         updated_at = excluded.updated_at`
     )
     .run({ ...input, now });
+}
+
+export function clearUnsubscribedArticles() {
+  return getDb()
+    .prepare(
+      `DELETE FROM articles
+       WHERE feed_id IS NULL
+          OR NOT EXISTS (
+            SELECT 1
+            FROM feeds
+            WHERE feeds.id = articles.feed_id
+          )`
+    )
+    .run().changes;
 }
 
 export function archiveMissingFeedArticles(feedId: number, currentUrls: string[]) {
@@ -449,15 +438,6 @@ function mapArticle(row: DbArticle): Article {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
-}
-
-function hasArticleSource(article: Article) {
-  return isMeaningfulSource(article.feedTitle) || isMeaningfulSource(article.author);
-}
-
-function isMeaningfulSource(source: string | null) {
-  const label = source?.trim().toLowerCase();
-  return Boolean(label && label !== "unknown source");
 }
 
 function mapSavedWord(row: DbSavedWord): SavedWord {
