@@ -21,6 +21,68 @@ afterEach(() => {
 });
 
 describe("saved item deletion", () => {
+  it("persists reader settings without losing defaults", async () => {
+    const { getSettings, saveSettings } = await loadDbModule();
+
+    const updated = saveSettings({ theme: "dark", translationProvider: "mock", fontSize: 22 });
+
+    expect(updated.theme).toBe("dark");
+    expect(updated.translationProvider).toBe("mock");
+    expect(updated.fontSize).toBe(22);
+    expect(updated.lineHeight).toBe(getSettings().lineHeight);
+    expect(getSettings().theme).toBe("dark");
+  });
+
+  it("increments saved word count when the same word is saved again", async () => {
+    const { saveWord } = await loadDbModule();
+    saveWord({
+      word: "context",
+      displayWord: "context",
+      translation: "语境",
+      explanation: "Meaning depends on nearby words.",
+      sourceSentence: "Context makes meaning clearer.",
+      articleId: null
+    });
+
+    const afterSecondSave = saveWord({
+      word: "context",
+      displayWord: "Context",
+      translation: "上下文",
+      explanation: "Updated explanation.",
+      sourceSentence: null,
+      articleId: null
+    });
+
+    expect(afterSecondSave).toHaveLength(1);
+    expect(afterSecondSave[0].count).toBe(2);
+    expect(afterSecondSave[0].displayWord).toBe("Context");
+    expect(afterSecondSave[0].sourceSentence).toBe("Context makes meaning clearer.");
+  });
+
+  it("updates review familiarity for words and sentences", async () => {
+    const { listSavedSentences, listSavedWords, saveSentence, saveWord, updateReview } = await loadDbModule();
+    const words = saveWord({
+      word: "context",
+      displayWord: "context",
+      translation: "语境",
+      explanation: "Meaning depends on nearby words.",
+      sourceSentence: "Context makes meaning clearer.",
+      articleId: null
+    });
+    const sentences = saveSentence({
+      text: "A difficult sentence becomes easier when it is divided into clauses.",
+      translation: "把难句拆成从句后会更容易。",
+      explanation: "Split the sentence into clauses.",
+      articleId: null
+    });
+
+    updateReview("word", words[0].id, "familiar");
+    updateReview("sentence", sentences[0].id, "mastered");
+
+    expect(listSavedWords()[0].familiarity).toBe("familiar");
+    expect(listSavedSentences()[0].familiarity).toBe("mastered");
+  });
+
   it("deletes a saved word from the returned list", async () => {
     const { deleteSavedWord, saveWord } = await loadDbModule();
     const words = saveWord({
