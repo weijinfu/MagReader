@@ -21,6 +21,76 @@ afterEach(() => {
 });
 
 describe("saved item deletion", () => {
+  it("archives feed articles missing from the latest refresh without deleting them", async () => {
+    const { archiveMissingFeedArticles, createFeed, listArticles, upsertArticle } = await loadDbModule();
+    const feed = createFeed({ title: "Example Feed", url: "https://example.com/rss.xml" })[0];
+    upsertArticle({
+      feedId: feed.id,
+      guid: "fresh",
+      url: "https://example.com/fresh",
+      title: "Fresh Article",
+      author: null,
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "Fresh",
+      contentHtml: "<p>Fresh article.</p>",
+      contentText: "Fresh article.",
+      difficulty: "A2"
+    });
+    upsertArticle({
+      feedId: feed.id,
+      guid: "stale",
+      url: "https://example.com/stale",
+      title: "Stale Article",
+      author: null,
+      publishedAt: "2026-05-30T00:00:00.000Z",
+      excerpt: "Stale",
+      contentHtml: "<p>Stale article.</p>",
+      contentText: "Stale article.",
+      difficulty: "A2"
+    });
+
+    const archived = archiveMissingFeedArticles(feed.id, ["https://example.com/fresh"]);
+
+    expect(archived).toBe(1);
+    expect(listArticles().map((article) => article.url)).toContain("https://example.com/fresh");
+    expect(listArticles().map((article) => article.url)).not.toContain("https://example.com/stale");
+  });
+
+  it("unarchives a feed article when it appears again in a later refresh", async () => {
+    const { archiveMissingFeedArticles, createFeed, listArticles, upsertArticle } = await loadDbModule();
+    const feed = createFeed({ title: "Example Feed", url: "https://example.com/rss.xml" })[0];
+    upsertArticle({
+      feedId: feed.id,
+      guid: "returning",
+      url: "https://example.com/returning",
+      title: "Returning Article",
+      author: null,
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "Returning",
+      contentHtml: "<p>Returning article.</p>",
+      contentText: "Returning article.",
+      difficulty: "A2"
+    });
+    archiveMissingFeedArticles(feed.id, []);
+
+    expect(listArticles().map((article) => article.url)).not.toContain("https://example.com/returning");
+
+    upsertArticle({
+      feedId: feed.id,
+      guid: "returning",
+      url: "https://example.com/returning",
+      title: "Returning Article",
+      author: null,
+      publishedAt: "2026-05-31T00:00:00.000Z",
+      excerpt: "Returning",
+      contentHtml: "<p>Returning article.</p>",
+      contentText: "Returning article.",
+      difficulty: "A2"
+    });
+
+    expect(listArticles().map((article) => article.url)).toContain("https://example.com/returning");
+  });
+
   it("persists reader settings without losing defaults", async () => {
     const { getSettings, saveSettings } = await loadDbModule();
 

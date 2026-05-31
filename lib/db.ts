@@ -248,9 +248,25 @@ export function upsertArticle(input: {
         content_html = excluded.content_html,
         content_text = excluded.content_text,
         difficulty = excluded.difficulty,
+        status = CASE WHEN articles.status = 'archived' THEN 'unread' ELSE articles.status END,
         updated_at = excluded.updated_at`
     )
     .run({ ...input, now });
+}
+
+export function archiveMissingFeedArticles(feedId: number, currentUrls: string[]) {
+  const database = getDb();
+  const now = nowIso();
+  if (!currentUrls.length) {
+    return database
+      .prepare("UPDATE articles SET status = 'archived', updated_at = ? WHERE feed_id = ? AND status != 'archived'")
+      .run(now, feedId).changes;
+  }
+
+  const placeholders = currentUrls.map(() => "?").join(", ");
+  return database
+    .prepare(`UPDATE articles SET status = 'archived', updated_at = ? WHERE feed_id = ? AND status != 'archived' AND url NOT IN (${placeholders})`)
+    .run(now, feedId, ...currentUrls).changes;
 }
 
 export function markArticle(id: number, status: Article["status"]) {

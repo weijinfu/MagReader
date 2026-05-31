@@ -1,7 +1,7 @@
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import Parser from "rss-parser";
-import { listFeeds, logIngestion, updateFeed, upsertArticle } from "@/lib/db";
+import { archiveMissingFeedArticles, listFeeds, logIngestion, updateFeed, upsertArticle } from "@/lib/db";
 import { rateArticleDifficulty } from "@/lib/ai";
 import { stripHtml } from "@/lib/utils";
 
@@ -32,9 +32,11 @@ export async function refreshFeed(feedId: number, url: string) {
   try {
     const parsed = await parser.parseURL(url);
     let inserted = 0;
+    const currentUrls: string[] = [];
     for (const item of parsed.items as ParserItem[]) {
       const articleUrl = item.link || item.guid;
       if (!articleUrl) continue;
+      currentUrls.push(articleUrl);
       const extracted = await extractArticle(articleUrl, item);
       upsertArticle({
         feedId,
@@ -50,14 +52,15 @@ export async function refreshFeed(feedId: number, url: string) {
       });
       inserted += 1;
     }
+    const archived = archiveMissingFeedArticles(feedId, currentUrls);
     updateFeed(feedId, {
       title: parsed.title || undefined,
       siteUrl: parsed.link ?? null,
       lastFetchedAt: new Date().toISOString(),
       lastError: null
     });
-    logIngestion(feedId, "success", `Fetched ${inserted} item(s).`);
-    return { feedId, ok: true, count: inserted };
+    logIngestion(feedId, "success", `Fetched ${inserted} item(s), archived ${archived} stale item(s).`);
+    return { feedId, ok: true, count: inserted, archived };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown RSS error";
     updateFeed(feedId, { lastError: message });

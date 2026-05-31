@@ -95,6 +95,7 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:59:27 CST: Updated verification policy per user request: automated tests should run locally only. Future tecent work should not run remote `npm test`; remote verification should check deployment/build/service/public HTTP/API health only.
 - 2026-05-31 12:04:02 CST: Added local API route regression coverage for Settings, Words, and Sentences routes. Tests cover settings GET/PATCH, word create/update/delete with invalid delete validation, and sentence create/update/delete with invalid delete validation. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (25 tests), and `npm run build`.
 - 2026-05-31 12:08:40 CST: Deployed the API route regression test update to tecent without running remote tests, per user preference. Remote health checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200 with no-cache headers, and public `/api/ai` returns `MyMemory Translate`.
+- 2026-05-31 15:37:09 CST: Fixed RSS refresh stale-article behavior. Successful feed refresh now archives articles from that feed that are absent from the latest RSS payload, so old articles disappear from the default Articles list without hard deletion; if an archived article appears again later, upsert restores it to `unread`. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (27 tests), and `npm run build`.
 
 ## Feature Checklist
 
@@ -194,3 +195,4 @@ Implement a local-first English foreign-article reading web app with RSS ingesti
 - 2026-05-31 11:59:27 CST: Recorded the new user preference that tecent should not run automated tests going forward; local tests are sufficient, with remote checks reserved for public deployment health.
 - 2026-05-31 12:04:02 CST: Added local route-level regression tests for key API behavior so endpoint validation and response shapes are covered in addition to DB helper tests.
 - 2026-05-31 12:08:40 CST: Synced the latest code to tecent and verified deployment health only; no remote automated tests were run.
+- 2026-05-31 15:37:09 CST: Changed RSS refresh from append-only history to feed-snapshot behavior for the visible article list. Stale feed articles are archived, not deleted, preserving saved-item references while keeping the article list current after refresh.
