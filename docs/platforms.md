@@ -6,22 +6,18 @@ Status: active.
 
 Use the Web app when you want a local desktop/browser workflow with export support.
 
-Commands:
-
-```bash
-npm run dev
-npm run verify
-```
+See `web/README.md` for setup and verification commands.
 
 Data:
 
 ```text
-data/magreader.db
+web/data/magreader.db
 ```
 
 Override:
 
 ```bash
+cd web
 MAGREADER_DB=/absolute/path/magreader.db npm run dev
 ```
 
@@ -34,14 +30,10 @@ Use the iOS app when you want a native phone/tablet workflow without running the
 Open:
 
 ```bash
-open ios/MagReader/MagReader.xcodeproj
+open ios/MagReader.xcodeproj
 ```
 
-Build:
-
-```bash
-npm run ios:build
-```
+Build with Xcode Product > Build. See `ios/README.md`.
 
 Data:
 
@@ -59,4 +51,3 @@ These are not implemented:
 - Cloud sync service.
 
 Add a platform only when there is a clear user workflow that Web/iOS cannot cover well.
-

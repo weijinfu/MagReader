@@ -16,10 +16,10 @@ The Web app is a Next.js application.
 
 Key directories:
 
-- `app/`: App Router pages and API routes.
-- `components/`: React UI.
-- `lib/`: SQLite, RSS, translation, dictionary, and utility logic.
-- `tests/`: Vitest unit and UI smoke tests.
+- `web/app/`: App Router pages and API routes.
+- `web/components/`: React UI.
+- `web/lib/`: SQLite, RSS, translation, dictionary, and utility logic.
+- `web/tests/`: Vitest unit and UI smoke tests.
 
 Runtime shape:
 
@@ -30,7 +30,7 @@ Browser UI
     -> RSS/translation/dictionary services
 ```
 
-The Web app stores data in `data/magreader.db` unless `MAGREADER_DB` points elsewhere.
+The Web app stores data in `web/data/magreader.db` unless `MAGREADER_DB` points elsewhere.
 
 ## iOS App
 
@@ -38,9 +38,9 @@ The iOS app is a native SwiftUI application.
 
 Key directories:
 
-- `ios/MagReader/MagReader/`: app source.
-- `ios/MagReader/MagReaderTests/`: unit tests.
-- `ios/MagReader/MagReaderUITests/`: UI smoke tests.
+- `ios/MagReader/`: app source.
+- `ios/MagReaderTests/`: unit tests.
+- `ios/MagReaderUITests/`: UI smoke tests.
 
 Runtime shape:
 
@@ -73,4 +73,3 @@ When changing product behavior, update both platform models when appropriate and
 Web and iOS schemas are intentionally similar, but there is no automatic migration or sync between them.
 
 Future import/export work should be planned as explicit tooling rather than implicit DB sharing.
-

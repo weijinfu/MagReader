@@ -1,6 +1,6 @@
 # iOS vs Web Feature Comparison
 
-Last updated: 2026-06-06 21:43 CST
+Last updated: 2026-06-06 22:10 CST
 
 ## Summary
 
@@ -12,7 +12,7 @@ The iOS app remains local-native and stores data in the iOS sandbox SQLite datab
 
 | Area | iOS Native | Web | Status |
 | --- | --- | --- | --- |
-| Local storage | App sandbox SQLite | Local `data/magreader.db` SQLite | Equivalent model, separate DBs |
+| Local storage | App sandbox SQLite | Local `web/data/magreader.db` SQLite | Equivalent model, separate DBs |
 | RSS/Atom feeds | Direct `URLSession` refresh | Server-side RSS refresh | Equivalent user workflow |
 | Article list | Grouped by Feed, collapsible | Grouped by Feed, collapsible | Aligned |
 | Reader | SwiftUI + `WKWebView` | React reader HTML view | Aligned core behavior |
@@ -60,5 +60,5 @@ The iOS app remains local-native and stores data in the iOS sandbox SQLite datab
 
 ## Verification
 
-- `npm run typecheck`: passed.
-- `npm test`: passed, 30/30 tests.
+- `cd web && npm run verify`: required after Web changes.
+- Xcode Product > Build / Product > Test: required after iOS changes.

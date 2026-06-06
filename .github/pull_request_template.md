@@ -9,11 +9,8 @@
 
 ## Verification
 
-- [ ] `npm run typecheck`
-- [ ] `npm test`
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] iOS build/tests where applicable
+- [ ] Web: `cd web && npm run verify`
+- [ ] iOS: Xcode Product > Build / Product > Test where applicable
+- [ ] Docs reviewed where applicable
 
 ## Notes
-

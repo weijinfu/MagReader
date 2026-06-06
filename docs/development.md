@@ -2,9 +2,12 @@
 
 ## Web Development
 
+Work from the `web/` directory.
+
 Install dependencies:
 
 ```bash
+cd web
 npm install
 ```
 
@@ -34,24 +37,10 @@ npm run build
 Open:
 
 ```bash
-open ios/MagReader/MagReader.xcodeproj
+open ios/MagReader.xcodeproj
 ```
 
-Use the `MagReader` scheme.
-
-Command-line build:
-
-```bash
-npm run ios:build
-```
-
-Command-line tests:
-
-```bash
-npm run ios:test
-```
-
-The `ios:test` script expects an iOS Simulator named `iPhone 17`. If your simulator differs, run `xcodebuild` directly with your destination.
+Use the `MagReader` scheme. Build and test with Xcode Product > Build and Product > Test.
 
 ## Documentation Rules
 
@@ -61,5 +50,4 @@ Update these files when relevant:
 - `docs/architecture.md`: architecture or data-flow changes.
 - `docs/platforms.md`: platform support changes.
 - `docs/ios-web-feature-comparison.md`: Web/iOS parity changes.
-- `plan.md`: progress notes, verification status, risks, and next steps.
-
+- Keep implementation notes local unless they are useful public documentation.
