@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { analyzeTextWithProvider } from "@/lib/ai";
+import { analyzeTextWithProvider, loadMoreWordMeanings } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Text is required." }, { status: 400 });
   }
   try {
+    if (body.mode === "meanings") {
+      return NextResponse.json({ meanings: await loadMoreWordMeanings(body.text) });
+    }
     return NextResponse.json({ analysis: await analyzeTextWithProvider(body.text) });
   } catch (error) {
     return NextResponse.json(

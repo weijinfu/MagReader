@@ -11,7 +11,7 @@ let container: HTMLDivElement;
 
 const baseSettings: ReaderSettings = {
   theme: "light",
-  translationProvider: "mock",
+  translationProvider: "google",
   fontFamily: "Georgia, 'Times New Roman', serif",
   fontSize: 20,
   lineHeight: 1.75,
@@ -61,6 +61,7 @@ function dashboard(settings: ReaderSettings = baseSettings): DashboardPayload {
         word: "grammar",
         displayWord: "grammar",
         translation: "语法",
+        meanings: [],
         explanation: "Language structure.",
         sourceSentence: "Reading slowly helps learners notice grammar.",
         articleId: 1,
@@ -158,7 +159,8 @@ beforeEach(() => {
             kind: "sentence",
             text: "Reading slowly helps learners notice grammar.",
             translation: "慢慢阅读可以帮助学习者注意语法。",
-            translationProvider: "Mock",
+            translationProvider: "Google Translate",
+            wordMeanings: [],
             explanation: "Split the sentence into useful parts.",
             phrases: [{ phrase: "Reading slowly", meaning: "read at a careful pace" }],
             structure: ["1. Reading slowly helps learners notice grammar."],
@@ -258,25 +260,27 @@ describe("MagReader UI smoke", () => {
     paragraph.setAttribute("data-caret-target", "true");
 
     await act(async () => {
-      paragraph.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, clientX: 10, clientY: 10 }));
-      await new Promise((resolve) => setTimeout(resolve, 260));
+      paragraph.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      paragraph.dispatchEvent(new dom.window.MouseEvent("pointerup", { bubbles: true, clientX: 10, clientY: 10 }));
+    });
+    expect(container.querySelectorAll(".reader-selection-highlight")).toHaveLength(1);
+    expect(container.querySelector(".mobile-learning-sheet")).toBeNull();
+
+    const highlight = container.querySelector(".reader-selection-highlight") as HTMLElement;
+    await act(async () => {
+      highlight.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, clientX: 10, clientY: 10 }));
     });
     await waitFor(() => Boolean(container.querySelector(".mobile-learning-sheet")));
 
     const sheetBefore = container.querySelector(".mobile-learning-sheet");
     expect(sheetBefore?.textContent).toContain("Reading slowly helps learners notice grammar.");
-    expect(sheetBefore?.textContent).toContain("Translate");
     expect(container.querySelectorAll(".reader-selection-highlight")).toHaveLength(1);
 
-    const translateButton = Array.from(sheetBefore?.querySelectorAll("button") ?? []).find((button) => button.textContent === "Translate");
-    expect(translateButton).toBeDefined();
-    await act(async () => {
-      translateButton?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-    });
     await waitFor(() => container.querySelector(".mobile-learning-sheet")?.textContent?.includes("慢慢阅读可以帮助学习者注意语法。") ?? false);
 
     const sheetAfter = container.querySelector(".mobile-learning-sheet");
-    expect(sheetAfter?.textContent).toContain("Mock");
+    expect(sheetAfter?.textContent).toContain("Google Translate");
     expect(sheetAfter?.textContent).toContain("Details");
     expect(container.querySelector(".app-shell")?.classList.contains("mobile-sheet-active")).toBe(true);
     expect(container.querySelectorAll(".reader-selection-highlight")).toHaveLength(1);

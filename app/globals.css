@@ -394,6 +394,31 @@ button:disabled {
   text-align: left;
 }
 
+.article-feed-group {
+  display: grid;
+  gap: 8px;
+}
+
+.feed-group-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 82%, var(--accent));
+  color: var(--text);
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.feed-group-items {
+  display: grid;
+  gap: 8px;
+}
+
 .article-row.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
@@ -782,6 +807,29 @@ button:disabled {
 .analysis-block {
   display: grid;
   gap: 10px;
+}
+
+.word-meanings {
+  display: grid;
+  gap: 10px;
+}
+
+.word-meaning {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 94%, var(--accent));
+  padding: 10px;
+}
+
+.word-meaning p {
+  margin: 4px 0 0;
+}
+
+.meaning-pos {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 2px 6px;
+  font-weight: 700;
 }
 
 .analysis-block h4 {

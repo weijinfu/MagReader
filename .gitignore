@@ -12,3 +12,6 @@ data/*.db-*
 output/playwright
 *.log
 tsconfig.tsbuildinfo
+ios/MagReader/DerivedData
+ios/MagReader/**/*.xcuserstate
+ios/MagReader/**/xcuserdata/

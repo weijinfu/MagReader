@@ -10,9 +10,10 @@ async function loadApiRoutes() {
   tempDbs.push(dbPath);
   vi.resetModules();
   process.env.MAGREADER_DB = dbPath;
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json([[["测试翻译", "source"]]])));
 
   const settingsRoute = await import("@/app/api/settings/route");
-  await settingsRoute.PATCH(jsonRequest("/api/settings", { translationProvider: "mock" }));
+  await settingsRoute.PATCH(jsonRequest("/api/settings", { translationProvider: "google" }));
 
   return {
     settingsRoute,
@@ -34,6 +35,7 @@ async function json<T>(response: Response) {
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   delete process.env.MAGREADER_DB;
   for (const dbPath of tempDbs.splice(0)) {
     fs.rmSync(path.dirname(dbPath), { force: true, recursive: true });
@@ -52,7 +54,7 @@ describe("API route behavior", () => {
     expect(patched.settings.theme).toBe("dark");
     expect(patched.settings.fontSize).toBe(23);
     expect(current.settings.theme).toBe("dark");
-    expect(current.settings.translationProvider).toBe("mock");
+    expect(current.settings.translationProvider).toBe("google");
   });
 
   it("creates, updates, and deletes words through the route", async () => {
@@ -85,7 +87,7 @@ describe("API route behavior", () => {
     const id = created.sentences[0].id;
 
     expect(created.sentences[0].text).toBe("Reading slowly helps learners notice grammar.");
-    expect(created.sentences[0].translation).toContain("Reading slowly");
+    expect(created.sentences[0].translation).toContain("测试翻译");
 
     const patchResponse = await sentencesRoute.PATCH(jsonRequest("/api/sentences", { id, familiarity: "mastered" }));
     const patched = await json<{ sentences: Array<{ id: number; familiarity: string }> }>(patchResponse);

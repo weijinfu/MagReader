@@ -37,6 +37,7 @@ export type SavedWord = {
   word: string;
   displayWord: string;
   translation: string;
+  meanings: WordMeaning[];
   explanation: string;
   sourceSentence: string | null;
   articleId: number | null;
@@ -72,11 +73,20 @@ export type ReaderSettings = {
 
 export type TranslationProvider = "mymemory" | "baidu" | "netease" | "youdao" | "microsoft" | "google" | "mock";
 
+export type WordMeaning = {
+  partOfSpeech: string;
+  definition: string;
+  translatedDefinition: string | null;
+  example: string | null;
+  synonyms: string[];
+};
+
 export type LearningAnalysis = {
   kind: "word" | "sentence";
   text: string;
   translation: string;
   translationProvider: string;
+  wordMeanings: WordMeaning[];
   explanation: string;
   phrases: Array<{ phrase: string; meaning: string }>;
   structure: string[];

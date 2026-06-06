@@ -47,16 +47,17 @@ describe("mock AI provider", () => {
     expect(truncateForSign("abcdefghijklmnopqrstuvwxyz")).toBe("abcdefghij26qrstuvwxyz");
   });
 
-  it("defines selectable translation providers", () => {
-    const providers: TranslationProvider[] = ["mymemory", "baidu", "netease", "youdao", "microsoft", "google", "mock"];
-    expect(providers).toEqual(expect.arrayContaining(["baidu", "netease", "microsoft", "google"]));
+  it("defines the selectable v1 translation providers", () => {
+    const providers: TranslationProvider[] = ["google", "mymemory"];
+    expect(providers).toEqual(["google", "mymemory"]);
   });
 
-  it("honors the persisted mock provider without network access", async () => {
+  it("falls back legacy mock provider settings to Google", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json([[["上下文帮助读者。", "Context helps readers."]]])));
     const { analyzeTextWithProvider } = await loadAiWithDbSettings({ translationProvider: "mock" });
     const result = await analyzeTextWithProvider("Context helps readers.");
 
-    expect(result.translationProvider).toBe("Mock");
-    expect(result.translation).toBe("模拟翻译：Context helps readers.");
+    expect(result.translationProvider).toBe("Google Translate");
+    expect(result.translation).toBe("上下文帮助读者。");
   });
 });

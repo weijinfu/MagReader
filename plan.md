@@ -1,212 +1,367 @@
-# MagReader Plan
+# MagReader iOS Native App Plan
 
 ## Current Goal
 
-Implement a local-first English foreign-article reading web app with RSS ingestion, immersive reading, vocabulary/sentence saving, pronunciation, lightweight review, typography controls, dark mode, and mock AI learning tools.
+Implement a local native iOS version of MagReader under `ios/MagReader`.
 
-## Completed Work
+The iOS app must run independently on iPhone/iPad without starting the existing Next.js/Node service. It should persist all user data in the app sandbox, fetch RSS feeds directly when online, support translation/learning analysis, and cover the core reading and review workflow.
 
-- 2026-05-24 23:58:20 CST: Confirmed the workspace was empty and selected a clean Next.js + TypeScript implementation.
-- 2026-05-24 23:58:20 CST: Locked MVP defaults: local SQLite storage, server-side RSS polling/manual refresh, mock AI/translation providers, browser speech synthesis, immersive annotation, lightweight review.
-- 2026-05-24 23:58:20 CST: Generated visual direction for a three-panel reading app: left navigation, center article reader, right learning panel, clean editorial UI, teal accent, dark mode support.
-- 2026-05-25 00:06:30 CST: Created Next.js/TypeScript scaffold, package scripts, styling baseline, app shell entrypoints, and installed dependencies.
-- 2026-05-25 00:06:30 CST: Added SQLite schema initialization for feeds, articles, saved words, saved sentences, annotations, settings, and ingestion logs.
-- 2026-05-25 00:06:30 CST: Added RSS parsing/extraction pipeline with Readability fallback, deduplication by URL, ingestion logs, and 30-minute in-process scheduler.
-- 2026-05-25 00:06:30 CST: Added mock AI provider for word/sentence translation, explanation, phrase notes, structure analysis, and difficulty rating.
-- 2026-05-25 00:06:30 CST: Added API routes for dashboard, feeds, feed refresh, articles, mock AI, saved words, saved sentences, settings, and export.
-- 2026-05-25 00:06:30 CST: Implemented main three-panel UI with article list, reader, selection analysis, pronunciation, saving, review, feed management, settings, dark mode, typography controls, and CSV export.
-- 2026-05-25 00:23:10 CST: Completed browser verification with Playwright CLI fallback, including article view, dark mode toggle, review view, settings view, local API checks, save word/sentence, review status updates, and CSV export.
-- 2026-05-25 01:14:30 CST: Added collapsible controls for the left navigation and article list so the reader can use a much wider content area.
-- 2026-05-25 09:32:19 CST: Optimized article-body selection: single-click selects the full sentence, drag selection still supports words/phrases, and translation/explanation now runs from explicit toolbar or panel actions instead of immediately on selection.
-- 2026-05-25 10:27:59 CST: Refined sentence selection state and toolbar behavior: stable highlighted sentences, toolbar status states, Translate/Save completion fade-out, Esc/outside-click dismissal, and clearer division between quick toolbar actions and full Learning Panel details.
-- 2026-05-25 11:14:03 CST: Updated reader selection interaction so single-click selects a sentence and double-click selects the current word, with stable React-rendered highlights for both sentence and word selections.
-- 2026-05-25 11:32:28 CST: Removed the full article-body HTML rewrite from selection highlighting. Selection now keeps the original article DOM stable and applies/removes a lightweight local highlight mark after render, eliminating the page refresh/flicker feeling during reading.
-- 2026-05-25 15:45:10 CST: Improved double-click word selection visibility with a stronger word-specific highlight while keeping the article DOM stable.
-- 2026-05-25 15:45:10 CST: Added hard-delete support for saved words and saved sentences through database helpers and `DELETE /api/words?id=...` / `DELETE /api/sentences?id=...`.
-- 2026-05-25 15:45:10 CST: Expanded Saved Words and Saved Sentences with status/source filters, sorting controls, detail expansion, speak/status/delete actions, and clearer count/source metadata.
-- 2026-05-25 15:45:10 CST: Expanded Review with type/status filters, hidden-answer review cards, reveal/details controls, status progression, speech, and shared delete behavior.
-- 2026-05-25 16:34:00 CST: Fixed the remaining double-click word highlight issue. Single-click sentence selection now waits briefly before applying the sentence mark, so a second click can cancel it and select the word. Manual/native word selections also create the same stable word highlight.
-- 2026-05-25 18:52:15 CST: Moved the article list visibility control into the top toolbar as `Hide list` / `Show list` and removed the old list-header/body-level toggle buttons.
-- 2026-05-25 18:52:15 CST: Added article-body media constraints so RSS images, figures, picture/video/iframe elements, and common image wrapper nodes stay inside the reader content width.
-- 2026-05-25 19:03:42 CST: Removed timed disappearance for the selection toolbar and selected-text highlight. Toolbar/highlight now persist after analysis or save until the user explicitly clears selection, changes selection, switches article/page, or presses Esc.
-- 2026-05-29 15:34:16 CST: Improved reader highlighting for paragraphs with nested inline nodes by replaying highlights across text-node segments instead of requiring one `Range.surroundContents()` call to cover the whole sentence.
-- 2026-05-29 15:34:16 CST: Hid BBC/Readability gray placeholder images such as `grey-placeholder.png` and `aria-label="image unavailable"` while keeping the real article image and caption visible.
-- 2026-05-29 15:42:53 CST: Added `figcaption` to reader selectable text blocks and fixed caption selection so image captions can be clicked or manually selected to create the same stable sentence highlight as body paragraphs.
+## Scope
 
-## In Progress
+- Build a native SwiftUI iOS app from scratch.
+- Store all iOS app data locally in SQLite.
+- Do not migrate or share the existing web `data/magreader.db`.
+- Do not depend on the local Next.js API server.
+- First version covers:
+  - Feed management.
+  - RSS/Atom refresh.
+  - Article list and article reader.
+  - Text selection for words, phrases, and sentences.
+  - Translation and learning analysis.
+  - Save word and save sentence flows.
+  - Saved item management.
+  - Review queue.
+  - Reader settings.
+- First version does not cover:
+  - CSV/JSON export.
+  - Cloud sync.
+  - User accounts.
+  - App Store distribution and notarization.
+  - Importing the existing web SQLite database.
+  - Full parity with every web translation provider.
 
-- Done.
+## Implementation Plan
 
-## Next Steps
+### Project Structure
 
-- Replace mock AI/translation providers with real OpenAI or other provider integrations when ready.
-- Add OPML import/export for RSS feed lists.
-- Add richer spaced repetition scheduling if the lightweight review flow is not enough.
-- Add account/cloud sync only if multi-device use becomes a requirement.
+- Create `ios/MagReader` as a SwiftUI iOS app.
+- Minimum target: iOS 17.
+- Use SwiftUI state, `ObservableObject/@Published`, async/await, `TabView`, and one `NavigationStack` per major tab.
+- Main tabs:
+  - `Articles`
+  - `Feeds`
+  - `Saved`
+  - `Review`
+  - `Settings`
+- App-level dependencies:
+  - `DatabaseClient`
+  - `FeedRefreshService`
+  - `TranslationService`
+  - `SpeechService`
+  - `SettingsStore`
+- Prefer environment injection for app-wide services and initializer injection for feature-local dependencies.
 
-## Open Questions / Risks
+### Models And Types
 
-- Real translation and AI integrations are deferred; mock provider contracts must stay easy to replace.
-- RSS article extraction can vary by publisher; MVP needs graceful fallback from full article extraction to feed summaries.
-- Browser speech voices differ by operating system and browser.
-- Server-side scheduled RSS refresh runs only while the app server process is active.
-- The app is implemented as a local-first single-user MVP; multi-user auth/sync is intentionally out of scope.
-- Browser verification for destructive delete confirmation is intentionally limited because it permanently removes local saved learning data; delete behavior is covered by database/API implementation and automated tests.
-- User preference as of 2026-05-31: do not run automated test suites on tecent. Future validation should run tests locally only; tecent checks should be limited to deployment/build/service/public health checks unless explicitly requested otherwise.
+Create Swift model types aligned with the existing web app surface:
 
-## Verification Status
+- `Feed`
+- `Article`
+- `SavedWord`
+- `SavedSentence`
+- `ReaderSettings`
+- `LearningAnalysis`
+- `Familiarity`
+- `TranslationProvider`
 
-- 2026-05-25 00:12:20 CST: First verification found issues: `stripHtml` left spaces before punctuation, RSS parser item type missed optional author field, and sandbox blocked `tsx` IPC for db init.
-- 2026-05-25 00:13:55 CST: Database initialization, unit tests, and TypeScript checks passed. Production build passed, but standalone lint failed because deprecated `next lint` is incompatible with the current ESLint stack; migrating to ESLint CLI.
-- 2026-05-25 00:15:10 CST: Production build passed after ESLint migration. Standalone lint only flagged the framework-generated `next-env.d.ts` triple-slash references; rule disabled for that generated file.
-- 2026-05-25 00:16:00 CST: Lint, typecheck, and unit tests passed after fixes. Cleaned duplicate dev dependency entries caused by retrying ESLint package installation.
-- 2026-05-25 00:17:05 CST: Final command verification passed: `npm test`, `npm run lint`, `npm run typecheck`, and `npm run build`. Build prints a non-fatal warning that the Next ESLint plugin is not detected because the project uses a custom flat ESLint CLI config.
-- 2026-05-25 00:18:00 CST: Browser snapshot loaded the app successfully and confirmed primary UI regions rendered. The only console error was a missing favicon, fixed by adding `app/icon.svg`.
-- 2026-05-25 00:20:10 CST: Playwright screenshot exposed a medium-desktop layout bug where the reader became too narrow at 1280px because article list and reader shared the already constrained center column. Added a 1181-1440px breakpoint that stacks the article list above the reader.
-- 2026-05-25 00:23:10 CST: Final verification passed: `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`, local homepage HTTP 200, dashboard API, mock AI API, save word API, save sentence API, review status PATCH APIs, CSV export, and Playwright snapshots/screenshots. The only remaining build message is a non-fatal Next warning that the custom flat ESLint config does not include the Next plugin.
-- 2026-05-25 01:14:30 CST: Collapsible reading layout verification passed. `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` passed; local page returned HTTP 200; Playwright screenshot saved to `output/playwright/collapsed-reading-layout.png`.
-- 2026-05-25 09:32:19 CST: Sentence-selection optimization verification passed. `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` passed. In-app browser verified: click a reader sentence -> floating toolbar appears -> Learning Panel shows selected sentence without analysis -> toolbar Translate loads Google Translate, explanation, difficulty, phrase notes, and structure. Console had no app errors.
-- 2026-05-25 10:27:59 CST: Selection-state toolbar verification passed. `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` passed. In-app browser verified: sentence click shows stable highlight and Ready toolbar; Translate shows Analyzing then fades out after completion while Learning Panel keeps results; direct Save analyzes/saves then fades out; Esc and outside click clear selection/highlight/toolbar. Console had no app errors.
-- 2026-05-25 11:14:03 CST: Click/double-click selection verification passed. `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` passed. In-app browser verified: clicking a sample sentence highlights the full sentence and updates the panel; double-clicking within that sentence switches to a word highlight (`learners`) and updates the toolbar/panel to the word selection. Console had no app errors.
-- 2026-05-25 11:32:28 CST: No-refresh selection verification passed. `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` passed. In-app browser verified that clicking a sentence and double-clicking a word keep the same scroll position and paragraph count while only swapping the local highlight mark and selection panel state.
-- 2026-05-25 15:45:10 CST: Saved/Review management verification passed for command checks: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` passed. Added DB tests proving `deleteSavedWord()` and `deleteSavedSentence()` remove items from returned lists.
-- 2026-05-25 15:45:10 CST: Browser verification partially passed before the temporary dev server became unreachable: Saved Words showed filter/sort controls, Details buttons, Delete buttons, and expandable source/time metadata; Saved Sentences showed filter/sort controls and Delete buttons. Review filtering UI rendered, but live reveal/delete review flow was not fully exercised because the current local queue had no due non-mastered items.
-- 2026-05-25 16:34:00 CST: Double-click word highlight fix passed command verification: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. Browser debugging reproduced the failure mode where the first click's sentence mark prevented reliable double-click word selection; the fix delays sentence marking and preserves word highlights from native selection. The dev server is currently on `http://127.0.0.1:3001` because local port 3000 is occupied by process 76955.
-- 2026-05-25 18:52:15 CST: Article list toggle/media overflow verification passed. `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` passed. Browser verified on `http://127.0.0.1:3001`: top toolbar shows `Hide list`, clicking it hides the article list and changes the button to `Show list`, clicking `Show list` restores the list, old `Collapse`/`Show article list` buttons are gone, dark mode keeps the toolbar readable, and current article media overflow is 0px across 6 media elements.
-- 2026-05-25 19:03:42 CST: Persistent selection verification passed. `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` passed. Browser verified on `http://127.0.0.1:3001`: after selecting a sentence and clicking `Translate`, the toolbar remained visible and the sentence highlight remained present 4.5 seconds after analysis completed.
-- 2026-05-29 15:34:16 CST: Highlight/placeholder cleanup verification passed. `npm run lint`, `npm test`, `npm run build`, and a second `npm run typecheck` after build passed; the first `typecheck` only failed because `.next/types` was momentarily missing while build regenerated it. Browser verified on `http://127.0.0.1:3002`: clicking the headline and four body paragraphs each produced one stable sentence highlight, Browser console had no app errors, and visible gray placeholder image count was 0.
-- 2026-05-29 15:42:53 CST: Figcaption highlight verification passed. `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` passed. Browser verified on `http://127.0.0.1:3004`: clicking the caption “About 70 people were evacuated as the fire was put out” produced one stable sentence highlight, selected text matched the caption, toolbar showed Ready actions, and Browser console had no app errors.
-- 2026-05-29 16:28:31 CST: Started translation-provider sync pass. Goal: replace the Tencent deployment's unreachable Google public endpoint with a free online provider that is selectable in Settings and shared by local/remote code. Remote checks showed Google public endpoint timed out from `tecent`, while MyMemory free translation returned Chinese successfully.
-- 2026-05-29 16:34:24 CST: Translation-provider sync verification passed. Added Settings-selectable providers (`mymemory`, `google`, `youdao`, `mock`), defaulted new installs to MyMemory, kept Youdao official API support behind `YOUDAO_APP_KEY`/`YOUDAO_APP_SECRET`, and deployed the same code to `tecent`. Local checks passed: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`. Remote checks passed: `npm run build`, `npm run db:init`, `magreader.service` active, `/api/settings` shows `translationProvider: "mymemory"`, and public `/api/ai` returned provider `MyMemory Translate` with Chinese output.
-- 2026-05-29 16:52:33 CST: Mobile UI optimization pass completed and deployed to `tecent`. Added mobile bottom tab navigation, compact wrapping top toolbar, reader-first article layout, mobile-visible Learning Panel below the reader, safer selection toolbar placement above the bottom nav, tighter mobile reader/card spacing, and mobile-specific heading/text sizing. Local checks passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. Browser plugin loaded the app on `http://127.0.0.1:3005/` with no console errors, but could not change the in-app browser viewport; mobile behavior was verified by CSS/media-rule inspection plus command checks. Remote checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, and `/api/ai` still returns `MyMemory Translate`.
-- 2026-05-29 16:54:40 CST: Started expanded translation-engine pass. Goal: add Settings options for Baidu, NetEase Youdao, Microsoft, and Google while keeping MyMemory as the no-key default. Implemented Baidu and Microsoft provider wrappers with clear missing-key errors; NetEase maps to the existing Youdao official API implementation.
-- 2026-05-29 16:58:56 CST: Expanded translation-engine pass completed and deployed to `tecent`. Settings now offers MyMemory Free, Baidu API, NetEase Youdao API, Microsoft Translator, Google Public, and Mock. Local checks passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. Remote checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, `/api/settings` preserved `translationProvider: "mymemory"`, and `/api/ai` still returns `MyMemory Translate`.
-- 2026-05-29 17:22:43 CST: Mobile white-screen mitigation deployed to `tecent`. Root cause is likely stale mobile browser HTML referencing old Next chunks after repeated deployments; the homepage had been statically prerendered and returned long-lived cache headers. Changed `app/page.tsx` to `dynamic = "force-dynamic"` and `revalidate = 0`. Local checks passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`; build now marks `/` as dynamic. Remote checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, and public `http://150.158.141.102/` now returns `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate`.
-- 2026-05-30 22:08:57 CST: Follow-up mobile blank-layout fix deployed to `tecent`. User screenshot showed the old mobile CSS still rendering the sidebar as a full-height top block, likely because iOS cached the immutable Next CSS asset. Added an inline mobile cache-bypass style in `app/layout.tsx` to force the nav to the bottom, keep `.main` visible, and restore the reader/content layout even if an old CSS file is cached. Local checks passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. Remote checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, no-cache homepage headers, and public HTML contains `position: fixed !important` mobile override rules.
-- 2026-05-30 22:37:43 CST: Mobile bottom learning sheet verification passed for command and deployment checks. Local checks passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. Remote checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage no-cache headers, public HTML contains the mobile sheet CSS (`mobile-learning-sheet` and fixed-position override), and public `/api/ai` still returns `MyMemory Translate`. Browser-plugin visual mobile verification was limited by navigation timeout on the local dev server, so final phone interaction should be checked directly on `http://150.158.141.102/`.
-- 2026-05-31 10:28:49 CST: Local verification passed after icon and drawer fixes: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. Browser verification on `http://127.0.0.1:3005/` confirmed primary nav has six visible icons, toolbar has action icons, horizontal overflow is 0px, article reader is visible, selecting an article paragraph opens the learning drawer at 926px viewport width, Translate keeps the drawer open and shows `MyMemory Translate`, Details expands explanation/difficulty/phrases/structure, the highlight remains stable, and the old selection toolbar is hidden while the drawer is active.
-- 2026-05-31 10:35:53 CST: GitHub and tecent sync completed. Committed changes as `4f32281` on `main` and pushed to `origin/main`. Remote deployment checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200 with no-cache headers, public HTML contains `nav-icon` and `mobile-learning-sheet`, and public `/api/ai` returns `MyMemory Translate`.
-- 2026-05-31 10:42:10 CST: Added regression coverage for settings persistence, duplicate saved-word count updates, review familiarity transitions, and persisted mock translation-provider behavior. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (19 tests), and `npm run build`.
-- 2026-05-31 11:08:06 CST: Synced the expanded regression tests to tecent and verified the remote test suite in `/home/ubuntu/apps/MagReader`: `npm test` passed with 19 tests.
-- 2026-05-31 11:17:01 CST: Added React/JSDOM UI smoke tests and updated Vitest to include `.test.tsx`. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (21 tests), and `npm run build`. The UI smoke tests verify primary navigation icons, toolbar action icons, reader rendering, dark-mode toolbar action, and article-list collapse behavior.
-- 2026-05-31 11:23:44 CST: Synced the UI smoke test and Vitest config to tecent. Remote `npm test` passed with 21 tests in `/home/ubuntu/apps/MagReader`; public homepage still returns HTTP 200 with no-cache headers and contains deployed `nav-icon` and `mobile-learning-sheet` markup/styles.
-- 2026-05-31 11:51:07 CST: Expanded UI smoke coverage for the core mobile/narrow-screen reading flow. The new test clicks an article sentence, verifies the learning sheet opens with the selected text and stable highlight, clicks Translate, and verifies the translated result stays visible in the learning sheet. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (22 tests), and `npm run build`.
-- 2026-05-31 11:57:02 CST: Synced the expanded learning-sheet UI smoke test to tecent and verified remote `npm test` passes with 22 tests. Public homepage still returns HTTP 200 with no-cache headers, and public `/api/ai` returns `MyMemory Translate`.
-- 2026-05-31 11:59:27 CST: Updated verification policy per user request: automated tests should run locally only. Future tecent work should not run remote `npm test`; remote verification should check deployment/build/service/public HTTP/API health only.
-- 2026-05-31 12:04:02 CST: Added local API route regression coverage for Settings, Words, and Sentences routes. Tests cover settings GET/PATCH, word create/update/delete with invalid delete validation, and sentence create/update/delete with invalid delete validation. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (25 tests), and `npm run build`.
-- 2026-05-31 12:08:40 CST: Deployed the API route regression test update to tecent without running remote tests, per user preference. Remote health checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200 with no-cache headers, and public `/api/ai` returns `MyMemory Translate`.
-- 2026-05-31 15:37:09 CST: Fixed RSS refresh stale-article behavior. Successful feed refresh now archives articles from that feed that are absent from the latest RSS payload, so old articles disappear from the default Articles list without hard deletion; if an archived article appears again later, upsert restores it to `unread`. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (27 tests), and `npm run build`.
-- 2026-05-31 15:41:34 CST: Deployed the RSS stale-article fix to tecent without running remote tests, per user preference. Remote health checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200 with no-cache headers, and public `/api/ai` returns `MyMemory Translate`.
-- 2026-05-31 15:50:44 CST: Removed source-less articles from the visible Articles data. `listArticles()` now omits articles where both feed source and author source are missing or `Unknown source`, while still keeping author-only articles visible. The article list and reader meta now display the feed source first and fall back to author. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (28 tests), and `npm run build`.
-- 2026-05-31 15:55:28 CST: Deployed the source-less article visibility fix to tecent without running remote tests, per user preference. Remote health checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200 with no-cache headers, public `/api/ai` returns `MyMemory Translate`, and public `/api/dashboard` returns only articles with a usable feed or author source.
-- 2026-05-31 17:00:32 CST: Improved mobile RSS feed entry. The Feeds page URL field now uses mobile-friendly URL input attributes, explicitly allows text selection, prevents iOS zoom with 16px mobile text, and adds a dedicated `Paste` button using the Clipboard API when available. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (29 tests), and `npm run build`.
-- 2026-05-31 17:05:06 CST: Deployed the mobile RSS feed entry fix to tecent without running remote tests, per user preference. Remote deployment checks passed for `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200/no-cache, inline mobile CSS containing `feed-url-input`, and deployed client JS containing `Paste`/clipboard fallback strings. Public `/api/ai` returned a translation-provider timeout during this deployment check; this appears unrelated to the RSS input change and should be monitored separately.
-- 2026-05-31 21:57:25 CST: Tightened article source rules. Articles now explicitly display the RSS subscription source as `Source: ...` in both the article list and reader header, no longer falling back to author as source. `listArticles()` now automatically hard-clears articles whose `feed_id` is missing or no longer points to a current subscription, and RSS upsert now reassigns existing URLs to the current feed when they reappear in a subscription. Local verification passed: `npm run typecheck`, `npm run lint`, `npm test` (30 tests), and `npm run build`.
-- 2026-05-31 22:04:16 CST: Deployed the subscription-only article source rule to tecent without running remote tests, per user preference. Remote health checks passed: `npm ci`, `npm run build`, `npm run db:init`, `magreader.service` active, public homepage HTTP 200/no-cache, and public `/api/dashboard` returns visible articles with current feed ids and feed titles.
+Required enum values:
+
+- `Familiarity`: `new`, `learning`, `familiar`, `mastered`.
+- `TranslationProvider`: `google`, `mymemory` for v1.
+- `Article.status`: `unread`, `read`, `archived`.
+
+### Data Layer
+
+- Use local SQLite in the app sandbox.
+- Prefer GRDB.swift if SPM dependency resolution is available.
+- If dependency resolution is blocked, use a thin local sqlite3 wrapper instead of blocking implementation.
+- Create migrations for:
+  - `feeds`
+  - `articles`
+  - `saved_words`
+  - `saved_sentences`
+  - `settings`
+  - `ingestion_logs`
+- Preserve web app persistence semantics:
+  - Feeds dedupe by `url`.
+  - Articles dedupe by `url`.
+  - Visible article lists exclude archived articles.
+  - Saved words normalize to lowercase `word`.
+  - Saving an existing word increments `count` and updates translation/explanation.
+  - Saved sentences dedupe by exact `text`.
+  - Review state updates write `familiarity` and `updatedAt`.
+
+### RSS And Article Ingestion
+
+- Implement RSS/Atom fetching with `URLSession`.
+- Use a Swift RSS/Atom parser package if available.
+- If unavailable, implement a minimal `XMLParser`-based parser that supports:
+  - Feed title.
+  - Item title.
+  - Link.
+  - GUID or Atom ID.
+  - Published date.
+  - Summary.
+  - Content/content encoded.
+- Refresh only enabled feeds.
+- For each refresh:
+  - Upsert current feed items into `articles`.
+  - Track current URLs.
+  - Archive previously visible articles for that feed when they are no longer present in the feed snapshot.
+  - Record success or failure in `ingestion_logs`.
+  - Store feed `lastFetchedAt` and `lastError`.
+- Prefer feed-provided HTML/content.
+- If feed content is short or missing, attempt a best-effort article HTML fetch.
+- On timeout, 403, blocked extraction, malformed HTML, or parse failure, fall back to RSS summary/title.
+- Sanitize article HTML before display by removing scripts, styles, event-handler attributes, and obviously unsafe markup.
+
+### Reader And Selection
+
+- Implement article detail as a SwiftUI shell with a `WKWebView` reader.
+- The reader must support:
+  - Clean article HTML rendering.
+  - Light/dark theme.
+  - Font family.
+  - Font size.
+  - Line height.
+  - Paragraph gap.
+  - Text selection.
+- Bridge selected text from `WKWebView` back into SwiftUI.
+- Show a native bottom sheet after selection with:
+  - `Translate`
+  - `Speak`
+  - `Save`
+  - `Details`
+- Classify selected text:
+  - A single likely English token is a word.
+  - Any other non-empty selection is a sentence/phrase and saves as sentence.
+- Keep selection and analysis visible until the user changes selection, closes the sheet, or navigates away.
+
+### Translation And Learning Analysis
+
+- Define `TranslationService` protocol.
+- Implement v1 providers:
+  - `GoogleTranslationService`
+  - `MyMemoryTranslationService`
+- Settings should expose only `Google` and `MyMemory` in v1.
+- Keep a fixture translation service only for tests and UI seed data.
+- Single-word analysis should first use the selected translation provider for a fast primary Chinese translation.
+- Structured dictionary meanings should load only when the user taps `Show More Meanings`.
+- On-demand dictionary lookup uses `dictionaryapi.dev`, then translates every returned English definition through the selected translation provider in batches.
+- Recreate the web app's local analysis behavior:
+  - Translation.
+  - Provider label.
+  - Word vs sentence kind.
+  - Explanation.
+  - Phrase hints.
+  - Structure splitting.
+  - Difficulty level and score.
+- Keep the analysis contract stable so Baidu, Youdao, Microsoft, OpenAI, or a paid dictionary API can be added later without changing views.
+
+### Speech
+
+- Implement `SpeechService` with `AVSpeechSynthesizer`.
+- Support speaking:
+  - Article title.
+  - Selected text.
+  - Saved words.
+  - Saved sentences.
+- Respect `ReaderSettings.speechRate`.
+
+### Saved And Review
+
+- Saved Words:
+  - List saved words.
+  - Show translation, explanation, source sentence, source article, count, and familiarity.
+  - Update familiarity.
+  - Delete saved word.
+- Saved Sentences:
+  - List saved sentences.
+  - Show translation, explanation, source article, and familiarity.
+  - Update familiarity.
+  - Delete saved sentence.
+- Review:
+  - Show non-mastered saved words and sentences by default.
+  - Support revealing/hiding answers.
+  - Support status progression.
+  - Support speaking items.
+
+### Settings
+
+- Persist settings locally.
+- Include:
+  - Theme.
+  - Translation provider.
+  - Font family.
+  - Font size.
+  - Line height.
+  - Paragraph gap.
+  - Speech rate.
+- Apply reader settings immediately to the current reader view.
 
 ## Feature Checklist
 
-- [x] Project scaffold
-- [x] App shell and navigation
-- [x] Collapsible left navigation and article list
-- [x] Dark mode
-- [x] Typography controls
-- [x] SQLite schema
-- [x] RSS feed CRUD
-- [x] Manual RSS refresh
-- [x] Scheduled RSS refresh
-- [x] Article extraction and deduplication
-- [x] Article list filters/search
-- [x] Reader page
-- [x] Click-to-select sentence flow
-- [x] Double-click-to-select word flow
-- [x] Stable selected word highlight
-- [x] Floating selection toolbar
-- [x] Deferred translation/explanation trigger
-- [x] Stable selected sentence highlight
-- [x] Selection toolbar status and fade-out rules
-- [x] Text selection annotation panel
-- [x] Word translation/explanation mock
-- [x] Sentence translation/explanation mock
-- [x] Selectable translation provider setting
-- [x] MyMemory free online translation provider
-- [x] Baidu translation provider option
-- [x] NetEase Youdao translation provider option
-- [x] Microsoft Translator provider option
-- [x] Optional Youdao official API translation provider
-- [x] Mobile bottom navigation
-- [x] Mobile reader-first layout
-- [x] Mobile Learning Panel access
-- [x] Mobile bottom learning sheet
-- [x] Mobile compact translation results
-- [x] Mobile expandable learning details
-- [x] Mobile selection toolbar placement
-- [x] Menu icons for primary navigation
-- [x] Toolbar icons for common actions
-- [x] Tablet/narrow-desktop learning drawer fallback
-- [x] React/JSDOM UI smoke tests for navigation and toolbar behavior
-- [x] Long-sentence analysis mock
-- [x] Phrase explanation mock
-- [x] Difficulty rating mock
-- [x] Browser pronunciation
-- [x] Save words
-- [x] Save original sentences
-- [x] Saved item search/filter
-- [x] Saved Words filters/sorting/details
-- [x] Saved Sentences filters/sorting/details
-- [x] Saved word/sentence hard delete APIs
-- [x] Lightweight review queue
-- [x] Review type/status filters
-- [x] Review hidden-answer card flow
-- [x] CSV/JSON export
-- [x] Lint/typecheck/build verification
+- [x] Create iOS project under `ios/MagReader`.
+- [x] Add Swift model types.
+- [x] Add service protocols.
+- [x] Add app shell with tabs and navigation.
+- [x] Add local SQLite database.
+- [x] Add migrations.
+- [x] Add feed CRUD.
+- [x] Add RSS/Atom parser.
+- [x] Add feed refresh pipeline.
+- [x] Add article list.
+- [x] Add article detail reader.
+- [x] Add `WKWebView` selection bridge.
+- [x] Add translation service.
+- [x] Add learning analysis.
+- [x] Add speech service.
+- [x] Add save word flow.
+- [x] Add save sentence flow.
+- [x] Add Saved Words view.
+- [x] Add Saved Sentences view.
+- [x] Add Review view.
+- [x] Add Settings view.
+- [x] Add real app icon asset.
+- [x] Add unit tests.
+- [x] Add UI smoke tests.
+- [x] Verify simulator build.
+- [x] Verify test build.
+
+## Test Plan
+
+### Unit Tests
+
+- Database migration creates all required tables.
+- Feed URL dedupe works.
+- Article URL dedupe works.
+- Archived articles are hidden from visible article queries.
+- Saved word normalization works.
+- Re-saving a word increments `count`.
+- Saved sentence exact-text dedupe works.
+- Familiarity updates work for words and sentences.
+- Delete works for words and sentences.
+- Fixture translation produces stable test-only `LearningAnalysis`.
+- Dictionary fixture parsing returns multiple `WordMeaning` entries.
+- Saved words persist and reload multiple dictionary meanings.
+- Word/sentence detection handles plain, apostrophe, and hyphenated English words.
+- RSS fixture parsing covers RSS, Atom, missing content, and duplicate article URL cases.
+
+### UI Tests
+
+- App launches into an empty articles state.
+- User can add a feed.
+- Refresh failure displays a clear error.
+- Article list opens article detail.
+- Reader settings update the current reader.
+- Selecting text opens the learning bottom sheet.
+- Translate displays analysis.
+- Save word creates a saved word visible in Saved and Review.
+- Save sentence creates a saved sentence visible in Saved and Review.
+- Review item can reveal answer and update familiarity.
+
+### Verification Commands
+
+- Use Xcode 26.3 and Swift 6.2.4.
+- Build for iOS simulator.
+- Run iOS unit tests.
+- Run iOS UI smoke tests.
+- Manually verify one real RSS feed, one Google/MyMemory translation request, and one `dictionaryapi.dev` word lookup when network access is available.
 
 ## Progress Notes
 
-- 2026-05-24 23:58:20 CST: Started implementation from an empty workspace.
-- 2026-05-25 00:06:30 CST: Feature implementation pass complete; moving into verification.
-- 2026-05-25 00:12:20 CST: Fixed text cleanup and RSS item typing; db init will be rerun with escalation because sandbox denied tsx IPC pipe creation.
-- 2026-05-25 00:13:55 CST: Replaced deprecated `next lint` script with ESLint CLI flat config.
-- 2026-05-25 00:17:05 CST: Starting local browser verification after passing command checks.
-- 2026-05-25 00:20:10 CST: Fixing browser-discovered responsive layout issue before final verification.
-- 2026-05-25 00:23:10 CST: Local dev server is running at http://localhost:3000 for manual testing.
-- 2026-05-25 00:30:00 CST: User reported the app could not open. Reproduced startup failure: Next tried to listen on `0.0.0.0:3000` and the environment returned `EPERM`. Updated `dev` and `start` scripts to bind `127.0.0.1` explicitly.
-- 2026-05-25 00:31:00 CST: Verified startup succeeds when local port listening is allowed. App responds at `http://127.0.0.1:3000` with HTTP 200 and `/api/dashboard` returns local data successfully.
-- 2026-05-25 00:45:00 CST: Replaced UI/API translation output with Google Translate-backed server translation while keeping AI explanation/phrase/difficulty analysis as local mock logic.
-- 2026-05-25 00:45:00 CST: Used BBC World RSS (`https://feeds.bbci.co.uk/news/world/rss.xml`) as a real online RSS source. Added it through the Feeds UI and refreshed it; 43 BBC articles were stored.
-- 2026-05-25 00:45:00 CST: Browser-tested a BBC article sentence: selected “Turkish riot police forced their way into the headquarters of the country's main opposition party on Sunday, days after a court dismissed its leadership.” The learning panel showed provider “Google Translate” and Chinese translation “土耳其防暴警察周日强行闯入该国主要反对党的总部，几天前，法院驳回了该党的领导层职务。”
-- 2026-05-25 00:45:00 CST: Saved that translated BBC sentence and verified it in SQLite with article id 6. Selected and saved the BBC article word `barricade`; Google Translate returned “路障”, and SQLite shows `saved_words` row id 2 for article id 6.
-- 2026-05-25 00:45:00 CST: Final verification passed after Google Translate changes: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. Browser screenshot saved to `output/playwright/bbc-google-translate-save-test.png`.
-- 2026-05-25 01:12:00 CST: User reported the article body占比 was too small. Added collapsible controls for both left-side regions: the global navigation collapses into a narrow rail, and the article list can be hidden with a restore button above the reader. When the article list is hidden, the reader uses a wider layout.
-- 2026-05-25 01:14:30 CST: Verified the collapsed layout in browser: the left navigation rail is narrow, the article list is hidden behind a restore button, and the article body expands across the main reading area. Screenshot: `output/playwright/collapsed-reading-layout.png`.
-- 2026-05-25 09:32:19 CST: Implemented the planned正文句子选中优化. Added `sentenceAtOffset()` with abbreviation/decimal handling, upgraded `sentenceAround()`, added tests for sentence boundaries, and changed the reader to select full sentences on click while deferring AI calls until the user chooses Translate/Explain/Save.
-- 2026-05-25 10:27:59 CST: Implemented the planned follow-up for选中状态 and悬浮窗/右侧面板分工. The toolbar now acts as a compact quick-action surface with Ready/Analyzing/Analyzed/Saved/Failed feedback, fades out after successful Translate or Save, and leaves full analysis/save state in the Learning Panel.
-- 2026-05-25 11:14:03 CST: Implemented “点击选句子，双击选单词”. Added `wordAtOffset()` tests for plain, apostrophe, and hyphenated words; the reader now handles `onDoubleClick` by selecting the word at the pointer and rendering a word-specific highlight.
-- 2026-05-25 11:32:28 CST: Fixed selection flicker by replacing React-generated highlighted article HTML with an imperative local highlight effect scoped to `.article-body`. This prevents the full article content from being replaced on every sentence click.
-- 2026-05-25 15:45:10 CST: Implemented the planned single-word selection display and Saved/Review management pass. Word selection now has a stronger dedicated highlight, saved words/sentences can be filtered/sorted/expanded/deleted, and Review now has type/status filters with hidden-answer cards.
-- 2026-05-25 15:45:10 CST: Final command verification passed for this pass: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. Browser validation covered Saved Words/Sentences management UI partially; destructive delete and full Review reveal/delete were left to non-destructive manual confirmation because current local data had no active review queue item and delete is permanent.
-- 2026-05-25 16:34:00 CST: Reworked the reader click timing so single-click sentence selection no longer mutates the article DOM before a possible double-click arrives. Added stable word highlight creation for native word selections and made failed caret calculations preserve any existing highlight instead of clearing it.
-- 2026-05-25 18:52:15 CST: Implemented the article list toggle placement and image overflow plan. The list visibility button now lives in the top toolbar, and article media is constrained to the reader card without cropping.
-- 2026-05-25 19:03:42 CST: Removed the toolbar auto-hide timer and the hover state that only existed to pause that timer. Also made the reader re-apply the active highlight after every render so analysis/save state updates do not wipe the selected sentence mark.
-- 2026-05-29 15:34:16 CST: Fixed highlight replay for complex article DOM structures and removed redundant BBC gray image placeholders. Local verification server is on `http://127.0.0.1:3002` because port 3000 is occupied by another local process.
-- 2026-05-29 15:42:53 CST: Fixed the user-reported caption that could not be clicked/highlighted. Local verification server is on `http://127.0.0.1:3004` because port 3000 is occupied by another local process.
-- 2026-05-30 22:37:43 CST: Implemented the mobile reading/translation bottom sheet and deployed it to `tecent`. On mobile, selected text now opens a bottom drawer above the nav; Translate shows loading and compact results in the drawer without scrolling to the bottom of the page; Details expands explanation, difficulty, phrases, and structure. Desktop keeps the right-side Learning Panel unchanged.
-- 2026-05-31 10:28:49 CST: Continued UI optimization toward the cross-device polish goal. Added inline SVG icons to primary navigation and top toolbar actions, changed mobile navigation to icon + short labels to avoid truncation, fixed the 820-1180px layout where the right Learning Panel was hidden but no learning drawer was visible, and prevented clicks inside the learning drawer from clearing the active selection.
-- 2026-05-31 10:35:53 CST: Synced the current optimized build to GitHub and tecent. Public URL verification passed for no-cache headers, deployed icon/mobile-sheet styles, active service, and translation API health.
-- 2026-05-31 10:42:10 CST: Strengthened functional test coverage around persistence and learning workflow state. Added tests for reader settings, saved-word repeat count behavior, word/sentence review status updates, and mock translation provider selection.
-- 2026-05-31 11:08:06 CST: Verified the new regression suite on tecent after syncing the test files; remote `npm test` now passes 19 tests.
-- 2026-05-31 11:17:01 CST: Added UI smoke coverage for the rendered React app. The new test mounts `MagReaderApp` in JSDOM with mocked dashboard/settings APIs and checks that menu/toolbar icons render and that toolbar actions update theme and article-list layout state.
-- 2026-05-31 11:23:44 CST: Verified the UI smoke suite on tecent after syncing `vitest.config.ts` and `tests/ui-smoke.test.tsx`; remote `npm test` now passes 21 tests.
-- 2026-05-31 11:51:07 CST: Added UI smoke coverage for selecting a sentence and translating it through the learning sheet, including JSDOM shims for the browser Range APIs used by reader highlighting.
-- 2026-05-31 11:57:02 CST: Verified the sentence-selection learning-sheet smoke test remotely on tecent; remote test suite now passes 22 tests.
-- 2026-05-31 11:59:27 CST: Recorded the new user preference that tecent should not run automated tests going forward; local tests are sufficient, with remote checks reserved for public deployment health.
-- 2026-05-31 12:04:02 CST: Added local route-level regression tests for key API behavior so endpoint validation and response shapes are covered in addition to DB helper tests.
-- 2026-05-31 12:08:40 CST: Synced the latest code to tecent and verified deployment health only; no remote automated tests were run.
-- 2026-05-31 15:37:09 CST: Changed RSS refresh from append-only history to feed-snapshot behavior for the visible article list. Stale feed articles are archived, not deleted, preserving saved-item references while keeping the article list current after refresh.
-- 2026-05-31 15:41:34 CST: Synced the RSS refresh fix to tecent and verified only deployment health. Public access to `http://150.158.141.102/` and `/api/ai` is healthy; remote automated tests were intentionally skipped.
-- 2026-05-31 15:50:44 CST: Changed article visibility rules so articles without a usable source are removed from the Articles list instead of showing `Unknown source`. Added regression coverage for source-less, `Unknown source`, and author-only articles.
-- 2026-05-31 15:55:28 CST: Synced the source-less article filter to GitHub and tecent. Public dashboard verification confirms visible articles now have a real feed source or author source; remote automated tests were intentionally skipped.
-- 2026-05-31 17:00:32 CST: Added a fallback paste path for mobile RSS URL entry. Feeds now has a dedicated `Paste` action and mobile-safe input attributes/styles so users are not blocked if iOS long-press paste is unreliable.
-- 2026-05-31 17:05:06 CST: Synced the mobile RSS paste fix to GitHub and tecent. Public asset checks confirm the deployed app includes the mobile input style and Paste fallback; remote automated tests were intentionally skipped.
-- 2026-05-31 21:57:25 CST: Changed visible article ownership to subscription-only. The sample/orphan fallback path is removed from visible Articles, and article source text now means RSS feed source rather than author/source fallback.
-- 2026-05-31 22:04:16 CST: Synced the subscription-only article source rule to GitHub and tecent. Public dashboard verification confirms visible articles now belong to the current ProPublica subscription source.
+- 2026-06-03 20:37:36 CST: Replaced `plan.md` with a clean iOS-native implementation plan. This file is now the source of truth for future iOS work, progress notes, verification results, and next goals.
+- 2026-06-03 20:57:23 CST: Implemented the first native iOS version under `ios/MagReader`. Added a SwiftUI app target, app shell tabs, aligned model types, sqlite3 persistence, RSS/Atom parsing and refresh, WKWebView article reader with text-selection bridge, Mock/MyMemory translation analysis, AVSpeechSynthesizer playback, Saved/Review/Settings screens, unit tests, and UI smoke tests. Switched from Swift macro-based Observation to `ObservableObject/@Published` because the current sandbox could not run Xcode macro plugin server reliably.
+- 2026-06-03 21:00:55 CST: Replaced the review familiarity segmented picker with explicit buttons to avoid a Swift 6 compiler IRGen crash caused by binding a main-actor closure through `Picker`. Rebuilt successfully afterward.
+- 2026-06-03 21:23:47 CST: Added a generated MagReader iOS app icon to `Assets.xcassets/AppIcon.appiconset`. The icon uses a book/magazine page, speech-bubble shape, bookmark accent, navy background, warm paper, teal, and amber highlights. Source asset is a 1024x1024 PNG without alpha.
+- 2026-06-03 21:26:19 CST: Updated the Articles tab to group visible articles by Feed. Each feed now renders as a section header with article count, and article rows no longer repeat the feed name inside a feed section.
+- 2026-06-03 21:29:04 CST: Optimized Articles feed grouping with collapsible `DisclosureGroup` sections. Feed groups are expanded by default, can be collapsed individually, and the toolbar now includes Expand All and Collapse All group actions.
+- 2026-06-03 21:33:52 CST: Replaced the iOS app icon with a simpler light-background version. The updated icon removes article-line details and keeps only the open book/speech-bubble silhouette, teal backing shape, and amber bookmark.
+- 2026-06-03 22:00:53 CST: Stabilized and expanded iOS verification. Fixed the WKWebView selection bridge JavaScript timer bug, added UI-test seeded in-memory app mode, expanded unit coverage to settings persistence, HTML sanitization, feed deletion cleanup, date/difficulty helpers, and expanded UI smoke coverage across Articles, article detail, Feeds, Saved, Review, and Settings.
+- 2026-06-04 08:27:50 CST: Fixed iOS reader word and paragraph selection interaction. The reader supports tap-to-select-word and long-press-to-select-paragraph through a native gesture bridge into `WKWebView`, with JavaScript selection/highlighting and a Swift fallback callback from `evaluateJavaScript`. This fixed the case where text highlighted but the learning sheet did not open.
+- 2026-06-04 20:03:00 CST: Tightened iOS reader selection to reduce accidental triggers. Single tap no longer selects text. Double tap selects a word and opens the learning sheet. Long press is handled inside the WebView with browser touch coordinates for paragraph/block selection. Native selection fallback now ignores short fragments and single words, so metadata like `B2` or accidental one-word native selections do not auto-open translation. The selection sheet now starts translation automatically when it appears, and SwiftUI debounces repeated selection callbacks while a sheet is already open.
+- 2026-06-04 21:59:00 CST: Reworked iOS reader selection into a two-stage highlight flow. A single tap highlights the tapped word only; tapping the highlighted word again opens the learning sheet and starts translation. Long press now uses custom WebView sentence detection, disables native text selection/callout, and highlights the whole sentence without opening the system selection UI; tapping the highlighted sentence opens translation. The learning sheet action area now includes Copy and uses a two-column adaptive grid to avoid cramped button labels.
+- 2026-06-04 22:15:00 CST: Refined the iOS reader selection flow and learning sheet. The sheet now opens at a smaller height with a compact selected-text preview and small two-column action buttons. Sentence detection now computes the sentence range from the containing text block rather than the tapped text node, which reduces partial-sentence highlights when paragraphs include inline nodes. Clicking outside the active highlight now clears the highlight instead of committing translation.
+- 2026-06-04 22:25:00 CST: Adjusted active-highlight behavior in the iOS reader. When a word or sentence is already highlighted, tapping another word now immediately switches the highlight to that word instead of requiring a separate clear action. Tapping a blank/non-word area still clears the active highlight.
+- 2026-06-06 10:57:34 CST: Implemented the iOS dictionary-style word translation update. The app now removes user-visible Mock translation, adds Google as the default provider, keeps MyMemory, uses `dictionaryapi.dev` for structured word meanings, translates dictionary definitions into Chinese with the selected provider, persists saved-word meanings in SQLite `meanings_json`, and keeps a fixture translation service only for tests/UI seed data.
+- 2026-06-06 11:54:28 CST: Fixed the next iOS usability batch. Settings consumers now explicitly observe `SettingsStore`, so translation provider, speech rate, typography, and reader background changes apply without restarting. Word dictionary analysis now avoids the extra primary word-translation request when dictionary meanings exist, caps dictionary meanings to five, batches Google definition translation, and lowers translation/dictionary timeouts. Speech now activates an iOS `.playback`/`.spokenAudio` audio session before speaking. Saved words/sentences now open detail sheets from the Saved list, saved word rows no longer show the confusing `x<count>` badge, Review `mastered` now asks for confirmation and deletes the saved item on confirmation, and Settings now includes reader background choices.
+- 2026-06-06 13:00:40 CST: Refined dictionary and Review interaction. Word analysis now translates only the first dictionary definition by default, leaving additional definitions un-translated until the user expands the UI. Dictionary sections in the selection sheet, Saved word detail, and Review show one meaning first and provide a `Show More Meanings` button to reveal the rest. Review `Reveal` and `Speak` now use explicit bordered button styles so tapping the review text/row does not route to Speak.
+- 2026-06-06 15:26:19 CST: Reworked word translation latency again. Single-word analysis now returns immediately from the selected fast translation provider and does not call `dictionaryapi.dev` during the initial sheet load. `Show More Meanings` now performs the dictionary lookup on demand, translates all returned definitions into Chinese in batches, and removes the previous five-definition cap. Saved word detail can now load missing dictionary meanings on demand and persist them through `updateSavedWordMeanings` without incrementing the saved word `count`. Review Speak remains explicit-button only.
+- 2026-06-06 15:34:00 CST: Adjusted on-demand dictionary display. After `Show More Meanings` finishes loading in the selection sheet or Saved word detail, all loaded meanings are shown immediately; the user no longer needs a second expand tap. Existing saved words that already have meanings still default to a compact preview in detail/review contexts.
+- 2026-06-06 21:47:00 CST: Added Web/iOS parity documentation and synced the Web app toward current iOS behavior. Added `docs/ios-web-feature-comparison.md`, Web `WordMeaning`/`meanings_json` support, on-demand `dictionaryapi.dev` meanings, fast-first word translation, Feed-grouped collapsible article list, two-step word/sentence highlight-to-translate flow, Copy actions, Review mastered confirm-and-delete, Google/MyMemory-only Settings, and Saved/Review dictionary meaning display/update.
+- 2026-06-06 21:56:00 CST: Repackaged MagReader as an open-source multi-platform project. Rewrote `README.md`, added MIT `LICENSE`, contribution/security/code-of-conduct docs, changelog, `.env.example`, platform/development/architecture docs, GitHub CI, issue templates, PR template, and package metadata/scripts for Web and iOS verification.
+
+## Next Steps
+
+1. Manually verify one fresh real RSS feed refresh with network access.
+2. Manually verify fast single-word translation latency and on-demand dictionary quality on device/network conditions.
+3. Manually verify Speak audio on a physical device or local Simulator with audio output enabled.
+4. Manually verify the new app icon on the iOS Home Screen after installing the app on Simulator or device.
+5. Add a dedicated UI test for the two-stage reader selection flow if a stable WKWebView coordinate strategy is available.
+6. Add polish for empty/error states after real feed refresh testing.
+7. Add optional import/export planning only after the native core flow is validated.
+
+## Verification Status
+
+- 2026-06-03 20:37:36 CST: Documentation-only rewrite. No code build or test suite was run.
+- 2026-06-03 20:52:49 CST: `xcodebuild -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build` passed. Xcode printed CoreSimulator service warnings in the sandbox, but the app target built successfully.
+- 2026-06-03 20:53:01 CST: `xcodebuild -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build-for-testing` passed for app, unit test, and UI test targets.
+- 2026-06-03 20:57:23 CST: Full `xcodebuild test` was attempted on iPhone 17 Simulator with elevated simulator access. Build and install progressed, but simulator launch failed with `NSMachErrorDomain Code=-308 "(ipc/mig) server died"` for both the app and UI test runner, so tests did not execute in this environment.
+- 2026-06-03 21:00:26 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build` passed after the familiarity picker fix.
+- 2026-06-03 21:00:55 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build-for-testing` passed after the familiarity picker fix. Xcode still prints CoreSimulator service warnings in the sandbox, but compilation and test bundle build completed.
+- 2026-06-03 21:23:47 CST: Verified the app icon asset with `sips -g pixelWidth -g pixelHeight -g hasAlpha ios/MagReader/MagReader/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`; result is 1024x1024 with no alpha. `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build` passed with elevated CoreSimulator access after a sandboxed run failed to access simulator runtimes.
+- 2026-06-03 21:26:19 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build` passed after the Articles feed grouping change.
+- 2026-06-03 21:29:04 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build` passed after adding collapsible Articles feed groups.
+- 2026-06-03 21:33:52 CST: Verified the simplified light app icon with `sips -g pixelWidth -g pixelHeight -g hasAlpha ios/MagReader/MagReader/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`; result is 1024x1024 with no alpha. A sandboxed `xcodebuild` run failed to access simulator runtimes, then the same build passed with elevated CoreSimulator access.
+- 2026-06-03 21:51:21 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,id=04E57135-215F-4833-8C05-8A9C933D7E04' -derivedDataPath ios/MagReader/DerivedData -only-testing:MagReaderTests test` passed 10 unit tests.
+- 2026-06-03 21:57:23 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,id=04E57135-215F-4833-8C05-8A9C933D7E04' -derivedDataPath ios/MagReader/DerivedData -only-testing:MagReaderUITests test` passed 5 UI smoke tests. Xcode printed one non-fatal CoreSimulator clone launch warning, but the test command exited successfully.
+- 2026-06-03 22:00:53 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,id=04E57135-215F-4833-8C05-8A9C933D7E04' -derivedDataPath ios/MagReader/DerivedData test` passed the full scheme test suite: 10 unit tests and 5 UI tests.
+- 2026-06-03 22:01:49 CST: Build iOS Apps `build_run_sim` launched the app successfully on iPhone 17 Simulator. Screenshot captured at `/var/folders/v6/3rfh7g614psg4yh7n5plbkz80000gn/T/screenshot_optimized_c0c86e04-36cc-4860-9a87-ee5165bc303c.jpg`, showing the Articles tab with collapsible ProPublica feed grouping.
+- 2026-06-03 22:03:00 CST: Build iOS Apps runtime UI snapshot confirmed Articles, Groups, Refresh, and all five tabs are reachable. Tapped a real ProPublica article and verified article detail renders in `WKWebView`; screenshot captured at `/var/folders/v6/3rfh7g614psg4yh7n5plbkz80000gn/T/screenshot_optimized_96d5a485-3924-4a00-b3e6-c71ae37d5548.jpg`.
+- 2026-06-04 08:20:05 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,id=04E57135-215F-4833-8C05-8A9C933D7E04' -derivedDataPath ios/MagReader/DerivedData test` passed the full scheme suite after the first reader selection rewrite: 10 unit tests and 5 UI tests.
+- 2026-06-04 08:27:50 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,id=04E57135-215F-4833-8C05-8A9C933D7E04' -derivedDataPath ios/MagReader/DerivedData test` passed the full scheme suite after adding native gesture fallback callbacks: 10 unit tests and 5 UI tests.
+- 2026-06-04 08:29:00 CST: Build iOS Apps + Computer Use interaction verification passed on iPhone 17 Simulator. A real click inside `WKWebView` selected the word `to` and opened the `Word` sheet with Translate/Speak/Save actions. A long press inside a paragraph selected the full paragraph and opened the learning sheet with the complete paragraph text; screenshot captured at `/var/folders/v6/3rfh7g614psg4yh7n5plbkz80000gn/T/screenshot_optimized_6ffa91fc-208c-43e4-a8fc-b2a663c00327.jpg`.
+- 2026-06-04 19:40:38 CST: Build iOS Apps `build_run_sim` and shell `xcodebuild build` passed after tightening selection interactions.
+- 2026-06-04 19:41:37 CST: Build iOS Apps `test_sim -only-testing:MagReaderTests` passed 10 unit tests.
+- 2026-06-04 19:42:59 CST: Build iOS Apps full UI test target timed out at the tool 120 second limit during `test-without-building`, after `build-for-testing` succeeded. The UI tests were then run individually to avoid the tool timeout.
+- 2026-06-04 20:02:02 CST: Build iOS Apps `test_sim -only-testing:MagReaderTests` passed 10 unit tests after the final selection changes.
+- 2026-06-04 20:01:00 CST: Build iOS Apps individual UI smoke tests passed 5/5: launch articles state/list, article list opens detail, Saved/Review tabs show seeded items, Settings tab reachable, Feeds tab shows seeded feeds.
+- 2026-06-04 20:02:30 CST: Build iOS Apps + Computer Use interaction verification passed on iPhone 17 Simulator after the final selection changes. Single tap in article text did not open a sheet. Double tap on `taken` opened the `Word` sheet and auto-started MyMemory translation, then displayed translation `采取的`. Long press on a non-text/image area no longer opened stale `B2` or old selection text.
+- 2026-06-04 21:52:30 CST: Build iOS Apps `build_run_sim` passed after the two-stage reader selection rewrite and Copy button addition.
+- 2026-06-04 21:54:33 CST: Build iOS Apps `test_sim -only-testing:MagReaderTests` passed 10 unit tests.
+- 2026-06-04 21:58:45 CST: Build iOS Apps UI smoke for `testArticleListOpensArticleDetail` passed according to the xcresult/build log. The tool call itself hit the 120 second response timeout after the test had completed successfully.
+- 2026-06-04 21:56:30 CST: Build iOS Apps + Computer Use interaction verification passed on iPhone 17 Simulator for the word flow. First tap on `taken` highlighted the word without opening a sheet. Second tap on the highlighted word opened the `Word` sheet, auto-started analysis, and showed the Copy button. A long press on the image/non-text center did not open native selection or a stale learning sheet. Precise coordinate validation for long-pressing body text is still best done manually on device/Simulator because current automation exposes the `WKWebView` only as one scroll-view element.
+- 2026-06-04 22:12:58 CST: Build iOS Apps `build_run_sim` passed after the sheet and selection refinement.
+- 2026-06-04 22:13:30 CST: Build iOS Apps + Computer Use interaction verification passed on iPhone 17 Simulator. First tap on `taken` highlighted the word; tapping the image/outside area cleared the highlight and did not open translation; tapping `taken` again then tapping the highlight opened the smaller `Word` sheet and auto-started analysis. Long press on non-text/image center did not show native text selection or a stale sheet.
+- 2026-06-04 22:15:25 CST: Build iOS Apps `test_sim -only-testing:MagReaderTests` passed 10 unit tests.
+- 2026-06-04 22:23:00 CST: Build iOS Apps `build_run_sim` passed after active-highlight switching changes.
+- 2026-06-04 22:23:40 CST: Build iOS Apps + Computer Use interaction verification passed on iPhone 17 Simulator. Tapping `taken` highlighted the word; tapping `over` while `taken` was highlighted directly switched the highlight to `over`; tapping a blank area cleared the highlight.
+- 2026-06-04 22:25:42 CST: Build iOS Apps `test_sim -only-testing:MagReaderTests` passed 10 unit tests.
+- 2026-06-06 10:50:51 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build-for-testing` passed outside the sandbox after the sandboxed run failed to access CoreSimulator runtimes for asset catalog compilation.
+- 2026-06-06 10:53:18 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/MagReader/DerivedData -only-testing:MagReaderTests test` passed 12 unit tests, covering provider fallback, Google fixture parsing, dictionary fixture parsing, saved-word meanings persistence, and existing RSS/reader helpers.
+- 2026-06-06 10:57:07 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/MagReader/DerivedData -only-testing:MagReaderUITests test` passed 5 UI smoke tests.
+- 2026-06-06 11:33:17 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build-for-testing` passed outside the sandbox after the seven-fix usability batch.
+- 2026-06-06 11:38:51 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/MagReader/DerivedData -only-testing:MagReaderTests test` passed 12 unit tests, including reader background settings persistence.
+- 2026-06-06 11:47:57 CST: Focused UI smoke `MagReaderUITests/testSavedAndReviewTabsShowSeededItems` passed after adding Saved detail sheet checks and Review mastered confirmation coverage.
+- 2026-06-06 11:58:40 CST: Full UI smoke `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/MagReader/DerivedData -only-testing:MagReaderUITests test` passed 5/5 tests, including Saved word/sentence detail sheets, Review mastered confirmation, and confirmed deletion after tapping `Delete`.
+- 2026-06-06 12:03:42 CST: Strengthened unit coverage passed 14/14 tests. New tests prove the same `CompositeTranslationService` instance switches from Google to MyMemory immediately after `SettingsStore.update`, word dictionary definitions are translated through one batched `translateTexts` call without an extra primary word translation request, and `AVSpeechService.speak` configures `AVAudioSession` with `.playback`.
+- 2026-06-06 12:08:26 CST: Final full UI smoke passed 5/5 tests after the provider-switching testability refactor.
+- 2026-06-06 12:48:53 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/MagReader/DerivedData build-for-testing` passed outside the sandbox after the single-default-meaning and Review Speak decoupling update.
+- 2026-06-06 12:54:09 CST: `xcodebuild -quiet -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/MagReader/DerivedData -only-testing:MagReaderTests test` passed 14/14 tests. The provider-switching test now also proves only the first dictionary definition is translated and later definitions remain un-translated until expanded.
+- 2026-06-06 13:00:40 CST: Full UI smoke passed 5/5 tests, including `Show More Meanings` in Saved word detail and the existing Review mastered delete flow.
+- 2026-06-06 15:19:31 CST: Build iOS Apps `build_sim` passed for `MagReader` on iPhone 17 Simulator after the fast-word-translation/on-demand-dictionary refactor.
+- 2026-06-06 15:23:31 CST: Build iOS Apps `test_sim -only-testing:MagReaderTests` passed 14/14 unit tests. The MCP call exceeded its 120 second response window, but the xcodebuild log recorded `TEST EXECUTE SUCCEEDED` and all unit test cases passed.
+- 2026-06-06 15:26:18 CST: Build iOS Apps `test_sim -only-testing:MagReaderUITests` passed 5/5 UI smoke tests. The MCP call exceeded its 120 second response window, and Xcode printed a post-success simulator runner launch warning, but the log recorded `TEST EXECUTE SUCCEEDED` and all UI test cases passed.
+- 2026-06-06 15:27:39 CST: Final Build iOS Apps `build_sim` passed after updating `plan.md`; no warnings or errors.
+- 2026-06-06 15:45:55 CST: Build iOS Apps `build_sim` passed after the immediate-expanded dictionary display adjustment; no warnings or errors.
+- 2026-06-06 21:47:00 CST: Web verification passed after iOS parity sync: `npm run typecheck`, `npm test` passed 30/30 tests, `npm run lint`, and `npm run build`. Next build still prints the existing non-fatal custom ESLint config warning about the Next plugin.
+- 2026-06-06 21:56:00 CST: Open-source packaging verification passed: `npm run verify` completed typecheck, 30/30 tests, lint, and production build. Build still prints the existing non-fatal Next ESLint plugin warning. Build iOS Apps `build_sim` also passed for the native iOS app with no warnings or errors.
+
+## Open Questions / Risks
+
+- SPM dependency resolution may be blocked by network restrictions. The current implementation already uses local sqlite3 and a minimal `XMLParser` RSS/Atom parser.
+- RSS extraction quality varies by publisher. Full-text extraction should be best effort, with RSS summary fallback as normal behavior.
+- Google Translate, MyMemory, and `dictionaryapi.dev` are network services and may rate-limit or fail depending on conditions. The app keeps a test-only fixture translation service for UI tests, but user-facing Settings only exposes Google and MyMemory. Initial single-word analysis now avoids the dictionary network dependency; if the on-demand dictionary lookup fails, the app keeps the fast translation result and does not fabricate dictionary meanings.
+- Speak is configured with an active iOS playback/spoken-audio session, but actual audible output still depends on Simulator/device audio routing, mute state, and selected voice availability. Manual audio checks are still needed on the target device.
+- `WKWebView` tap-to-highlight/tap-to-translate word selection was verified on Simulator with Build iOS Apps and Computer Use. Long-press sentence selection is implemented with custom WebView range logic and native callout disabled; precise text-coordinate automation remains limited because current tooling exposes the reader as one scroll-view element. Real device checks are still useful before distribution because iOS text selection gesture behavior can vary by OS/device.
+- The iOS app intentionally does not share the existing web SQLite database. Data import can be planned later if needed.

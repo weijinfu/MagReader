@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
-import type { Article, DashboardPayload, Feed, ReaderSettings, SavedSentence, SavedWord } from "@/lib/types";
+import type { Article, DashboardPayload, Feed, ReaderSettings, SavedSentence, SavedWord, WordMeaning } from "@/lib/types";
 import { nowIso, toBoolean } from "@/lib/utils";
 
 const dataDir = path.join(process.cwd(), "data");
@@ -56,6 +56,7 @@ function migrate(database: Database.Database) {
       word TEXT NOT NULL UNIQUE,
       display_word TEXT NOT NULL,
       translation TEXT NOT NULL,
+      meanings_json TEXT NOT NULL DEFAULT '[]',
       explanation TEXT NOT NULL,
       source_sentence TEXT,
       article_id INTEGER REFERENCES articles(id) ON DELETE SET NULL,
@@ -98,11 +99,19 @@ function migrate(database: Database.Database) {
       value TEXT NOT NULL
     );
   `);
+  addColumnIfNeeded(database, "saved_words", "meanings_json", "TEXT NOT NULL DEFAULT '[]'");
+}
+
+function addColumnIfNeeded(database: Database.Database, table: string, column: string, definition: string) {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!columns.some((item) => item.name === column)) {
+    database.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+  }
 }
 
 const defaultSettings: ReaderSettings = {
   theme: "light",
-  translationProvider: "mymemory",
+  translationProvider: "google",
   fontFamily: "Georgia, 'Times New Roman', serif",
   fontSize: 20,
   lineHeight: 1.75,
@@ -114,7 +123,11 @@ const defaultSettings: ReaderSettings = {
 export function getSettings(): ReaderSettings {
   const rows = getDb().prepare("SELECT key, value FROM settings").all() as Array<{ key: string; value: string }>;
   const saved = Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value)]));
-  return { ...defaultSettings, ...saved };
+  const settings = { ...defaultSettings, ...saved };
+  if (!["google", "mymemory"].includes(settings.translationProvider)) {
+    settings.translationProvider = "google";
+  }
+  return settings;
 }
 
 export function saveSettings(settings: Partial<ReaderSettings>) {
@@ -266,26 +279,34 @@ export function saveWord(input: {
   word: string;
   displayWord: string;
   translation: string;
+  meanings?: WordMeaning[];
   explanation: string;
   sourceSentence: string | null;
   articleId: number | null;
 }) {
   const now = nowIso();
+  const meaningsJson = encodeMeanings(input.meanings ?? []);
   getDb()
     .prepare(
       `INSERT INTO saved_words
-      (word, display_word, translation, explanation, source_sentence, article_id, familiarity, count, created_at, updated_at)
-      VALUES (@word, @displayWord, @translation, @explanation, @sourceSentence, @articleId, 'new', 1, @now, @now)
+      (word, display_word, translation, meanings_json, explanation, source_sentence, article_id, familiarity, count, created_at, updated_at)
+      VALUES (@word, @displayWord, @translation, @meaningsJson, @explanation, @sourceSentence, @articleId, 'new', 1, @now, @now)
       ON CONFLICT(word) DO UPDATE SET
         display_word = excluded.display_word,
         translation = excluded.translation,
+        meanings_json = CASE WHEN excluded.meanings_json != '[]' THEN excluded.meanings_json ELSE saved_words.meanings_json END,
         explanation = excluded.explanation,
         source_sentence = COALESCE(excluded.source_sentence, saved_words.source_sentence),
         article_id = COALESCE(excluded.article_id, saved_words.article_id),
         count = saved_words.count + 1,
         updated_at = excluded.updated_at`
     )
-    .run({ ...input, now });
+    .run({ ...input, meaningsJson, now });
+  return listSavedWords();
+}
+
+export function updateSavedWordMeanings(id: number, meanings: WordMeaning[]) {
+  getDb().prepare("UPDATE saved_words SET meanings_json = ?, updated_at = ? WHERE id = ?").run(encodeMeanings(meanings), nowIso(), id);
   return listSavedWords();
 }
 
@@ -384,6 +405,7 @@ type DbSavedWord = {
   word: string;
   display_word: string;
   translation: string;
+  meanings_json: string | null;
   explanation: string;
   source_sentence: string | null;
   article_id: number | null;
@@ -446,6 +468,7 @@ function mapSavedWord(row: DbSavedWord): SavedWord {
     word: row.word,
     displayWord: row.display_word,
     translation: row.translation,
+    meanings: decodeMeanings(row.meanings_json),
     explanation: row.explanation,
     sourceSentence: row.source_sentence,
     articleId: row.article_id,
@@ -455,6 +478,20 @@ function mapSavedWord(row: DbSavedWord): SavedWord {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function encodeMeanings(meanings: WordMeaning[]) {
+  return JSON.stringify(meanings);
+}
+
+function decodeMeanings(value: string | null): WordMeaning[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as WordMeaning[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function mapSavedSentence(row: DbSavedSentence): SavedSentence {

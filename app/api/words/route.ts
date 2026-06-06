@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteSavedWord, listSavedWords, saveWord, updateReview } from "@/lib/db";
+import { deleteSavedWord, listSavedWords, saveWord, updateReview, updateSavedWordMeanings } from "@/lib/db";
 import { analyzeTextWithProvider } from "@/lib/ai";
 import { normalizeWord } from "@/lib/utils";
 
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     word,
     displayWord: body.displayWord ?? body.word ?? word,
     translation: body.translation ?? analysis.translation,
+    meanings: Array.isArray(body.meanings) ? body.meanings : analysis.wordMeanings,
     explanation: body.explanation ?? analysis.explanation,
     sourceSentence: body.sourceSentence ?? null,
     articleId: body.articleId ?? null
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
+  if (body.action === "meanings") {
+    return NextResponse.json({ words: updateSavedWordMeanings(Number(body.id), Array.isArray(body.meanings) ? body.meanings : []) });
+  }
   updateReview("word", Number(body.id), body.familiarity);
   return NextResponse.json({ words: listSavedWords() });
 }

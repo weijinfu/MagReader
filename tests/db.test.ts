@@ -181,7 +181,7 @@ describe("saved item deletion", () => {
     const updated = saveSettings({ theme: "dark", translationProvider: "mock", fontSize: 22 });
 
     expect(updated.theme).toBe("dark");
-    expect(updated.translationProvider).toBe("mock");
+    expect(updated.translationProvider).toBe("google");
     expect(updated.fontSize).toBe(22);
     expect(updated.lineHeight).toBe(getSettings().lineHeight);
     expect(getSettings().theme).toBe("dark");

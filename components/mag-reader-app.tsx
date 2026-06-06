@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { Article, DashboardPayload, Familiarity, Feed, LearningAnalysis, ReaderSettings, SavedSentence, SavedWord, ViewKey } from "@/lib/types";
+import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { Article, DashboardPayload, Familiarity, Feed, LearningAnalysis, ReaderSettings, SavedSentence, SavedWord, ViewKey, WordMeaning } from "@/lib/types";
 import { clamp, isLikelyWord, sentenceAround, sentenceAtOffset, wordAtOffset } from "@/lib/utils";
 
 type IconName = "articles" | "feeds" | "words" | "sentences" | "review" | "settings" | "refresh" | "list" | "moon" | "sun" | "export";
@@ -33,6 +33,8 @@ type ActiveSelection = {
   highlight?: SelectionHighlight;
 };
 
+type SelectTextInput = Omit<ActiveSelection, "status" | "savedAs" | "message"> & { commit?: boolean };
+
 type SelectionHighlight = {
   containerText: string;
   start: number;
@@ -57,6 +59,7 @@ export function MagReaderApp() {
   const [activeSelection, setActiveSelection] = useState<ActiveSelection | null>(null);
   const [toolbarVisible, setToolbarVisible] = useState(false);
   const [analysis, setAnalysis] = useState<LearningAnalysis | null>(null);
+  const [loadingMoreMeanings, setLoadingMoreMeanings] = useState(false);
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
@@ -143,7 +146,7 @@ export function MagReaderApp() {
     setSettings(data.settings);
   }
 
-  function selectText(selection: Omit<ActiveSelection, "status" | "savedAs" | "message">) {
+  function selectText(selection: SelectTextInput) {
     const clean = selection.text.trim();
     if (!clean) return;
     if (clean.length > 700) {
@@ -153,16 +156,20 @@ export function MagReaderApp() {
     const sameSelection = clean === selectedText;
     setSelectedText(clean);
     if (!sameSelection) setAnalysis(null);
-    setToolbarVisible(true);
-    setMobileSheetOpen(true);
+    const committed = selection.commit ?? false;
+    setToolbarVisible(committed);
+    setMobileSheetOpen(committed);
     if (!sameSelection) setMobileDetailsOpen(false);
     setActiveSelection((current) => ({
       ...selection,
       text: clean,
       status: sameSelection && analysis ? current?.status === "saved" ? "saved" : "analyzed" : "ready",
       savedAs: sameSelection ? current?.savedAs : undefined,
-      message: sameSelection && analysis ? current?.message ?? "Analyzed" : "Ready"
+      message: committed ? sameSelection && analysis ? current?.message ?? "Analyzed" : "Ready" : "Highlighted"
     }));
+    if (committed) {
+      void requestAnalysis(clean);
+    }
   }
 
   function focusLearningPanel() {
@@ -211,6 +218,30 @@ export function MagReaderApp() {
     }
   }
 
+  async function loadMoreMeanings(text = selectedText) {
+    const clean = text.trim();
+    if (!clean || !isLikelyWord(clean) || loadingMoreMeanings) return;
+    setLoadingMoreMeanings(true);
+    setToolbarVisible(true);
+    setMobileSheetOpen(true);
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: clean, mode: "meanings" })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Dictionary lookup failed.");
+      const meanings = (data.meanings ?? []) as WordMeaning[];
+      setAnalysis((current) => current && current.text === clean ? { ...current, wordMeanings: meanings, translationProvider: current.translationProvider.includes("Dictionary") ? current.translationProvider : `${current.translationProvider} + Dictionary` } : current);
+      if (!meanings.length) setToast("No dictionary meanings found.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Dictionary lookup failed.");
+    } finally {
+      setLoadingMoreMeanings(false);
+    }
+  }
+
   async function saveSelection(kind?: "word" | "sentence") {
     if (!selectedText) return;
     const word = isLikelyWord(selectedText);
@@ -236,6 +267,7 @@ export function MagReaderApp() {
             word: selectedText,
             displayWord: selectedText,
             translation: currentAnalysis.translation,
+            meanings: currentAnalysis.wordMeanings,
             explanation: currentAnalysis.explanation,
             sourceSentence: selectedArticle ? sentenceAround(selectedArticle.contentText, selectedText) : null,
             articleId: selectedArticle?.id ?? null
@@ -286,6 +318,15 @@ export function MagReaderApp() {
     utterance.lang = "en-US";
     utterance.rate = settings?.speechRate ?? 0.92;
     window.speechSynthesis.speak(utterance);
+  }
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard?.writeText(text);
+      setToast("Copied.");
+    } catch {
+      setToast("Copy is unavailable in this browser.");
+    }
   }
 
   async function refreshFeeds() {
@@ -380,10 +421,22 @@ export function MagReaderApp() {
         visible={toolbarVisible}
         requestAnalysis={requestAnalysis}
         speak={speak}
+        copyText={copyText}
         saveSelection={saveSelection}
         focusLearningPanel={focusLearningPanel}
       />
-      <LearningPanel refElement={learningPanelRef} selectedText={selectedText} activeSelection={activeSelection} analysis={analysis} requestAnalysis={requestAnalysis} speak={speak} saveSelection={saveSelection} />
+      <LearningPanel
+        refElement={learningPanelRef}
+        selectedText={selectedText}
+        activeSelection={activeSelection}
+        analysis={analysis}
+        requestAnalysis={requestAnalysis}
+        loadMoreMeanings={loadMoreMeanings}
+        loadingMoreMeanings={loadingMoreMeanings}
+        speak={speak}
+        copyText={copyText}
+        saveSelection={saveSelection}
+      />
       <MobileLearningSheet
         open={mobileSheetOpen}
         selectedText={selectedText}
@@ -393,7 +446,10 @@ export function MagReaderApp() {
         setDetailsOpen={setMobileDetailsOpen}
         close={() => setMobileSheetOpen(false)}
         requestAnalysis={requestAnalysis}
+        loadMoreMeanings={loadMoreMeanings}
+        loadingMoreMeanings={loadingMoreMeanings}
         speak={speak}
+        copyText={copyText}
         saveSelection={saveSelection}
       />
       {toast ? <div className="toast">{toast}</div> : null}
@@ -585,7 +641,7 @@ function ArticleWorkspace({
   setSelectedArticleId: (id: number) => void;
   settings: ReaderSettings;
   activeHighlight: SelectionHighlight | null;
-  onSelectText: (selection: Omit<ActiveSelection, "status" | "savedAs" | "message">) => void;
+  onSelectText: (selection: SelectTextInput) => void;
   speak: (text: string) => void;
   articleListCollapsed: boolean;
 }) {
@@ -594,25 +650,65 @@ function ArticleWorkspace({
     return articles.filter((article) => !q || article.title.toLowerCase().includes(q) || article.contentText.toLowerCase().includes(q) || article.feedTitle?.toLowerCase().includes(q));
   }, [articles, query]);
 
+  const [expandedFeeds, setExpandedFeeds] = useState<Set<string>>(new Set());
+  const groups = useMemo(() => groupArticlesByFeed(filtered), [filtered]);
+
+  useEffect(() => {
+    setExpandedFeeds((current) => {
+      if (current.size) return current;
+      return new Set(groups.map((group) => group.key));
+    });
+  }, [groups]);
+
+  function toggleFeed(key: string) {
+    setExpandedFeeds((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   return (
     <div className={`content-grid ${articleListCollapsed ? "list-collapsed" : ""}`}>
       {!articleListCollapsed ? (
         <section className="article-list-panel" aria-label="Article list">
           <div className="list-header">
             <span className="section-label">{filtered.length} Articles</span>
+            <div className="row-meta">
+              <button className="small-button" onClick={() => setExpandedFeeds(new Set(groups.map((group) => group.key)))}>
+                Expand All
+              </button>
+              <button className="small-button" onClick={() => setExpandedFeeds(new Set())}>
+                Collapse All
+              </button>
+            </div>
           </div>
           <div className="article-list">
-            {filtered.map((article) => {
+            {groups.map((group) => {
+              const expanded = expandedFeeds.has(group.key);
               return (
-                <button key={article.id} className={`article-row ${selectedArticle?.id === article.id ? "active" : ""}`} onClick={() => setSelectedArticleId(article.id)}>
-                  <h3 className="row-title">{article.title}</h3>
-                  <div className="row-meta">
-                    {article.feedTitle ? <span>Source: {article.feedTitle}</span> : null}
-                    <span>{article.difficulty}</span>
-                    <span>{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : "No date"}</span>
-                  </div>
-                  {article.excerpt ? <p className="muted">{article.excerpt}</p> : null}
-                </button>
+                <div className="article-feed-group" key={group.key}>
+                  <button className="feed-group-header" onClick={() => toggleFeed(group.key)} aria-expanded={expanded}>
+                    <span>{expanded ? "⌄" : "›"}</span>
+                    <strong>{group.title}</strong>
+                    <span>{group.articles.length}</span>
+                  </button>
+                  {expanded ? (
+                    <div className="feed-group-items">
+                      {group.articles.map((article) => (
+                        <button key={article.id} className={`article-row ${selectedArticle?.id === article.id ? "active" : ""}`} onClick={() => setSelectedArticleId(article.id)}>
+                          <h3 className="row-title">{article.title}</h3>
+                          <div className="row-meta">
+                            <span>{article.difficulty}</span>
+                            <span>{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : "No date"}</span>
+                          </div>
+                          {article.excerpt ? <p className="muted">{article.excerpt}</p> : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
             {!filtered.length ? <div className="empty">No articles match this search.</div> : null}
@@ -631,6 +727,17 @@ function ArticleWorkspace({
   );
 }
 
+function groupArticlesByFeed(articles: Article[]) {
+  const map = new Map<string, { key: string; title: string; articles: Article[] }>();
+  for (const article of articles) {
+    const key = article.feedTitle ?? "No Feed";
+    const group = map.get(key) ?? { key, title: key, articles: [] };
+    group.articles.push(article);
+    map.set(key, group);
+  }
+  return Array.from(map.values());
+}
+
 function Reader({
   article,
   settings,
@@ -642,12 +749,13 @@ function Reader({
   article: Article;
   settings: ReaderSettings;
   activeHighlight: SelectionHighlight | null;
-  onSelectText: (selection: Omit<ActiveSelection, "status" | "savedAs" | "message">) => void;
+  onSelectText: (selection: SelectTextInput) => void;
   speak: (text: string) => void;
   wide?: boolean;
 }) {
   const articleBodyRef = useRef<HTMLDivElement | null>(null);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useLayoutEffect(() => {
     const body = articleBodyRef.current;
@@ -660,6 +768,7 @@ function Reader({
   useEffect(() => {
     return () => {
       if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, []);
 
@@ -691,7 +800,7 @@ function Reader({
       clearReaderHighlight(body);
       window.getSelection()?.removeAllRanges();
     }
-    onSelectText({ text, kind, highlight, ...toolbarPoint });
+    onSelectText({ text, kind, highlight, commit: true, ...toolbarPoint });
   }
 
   function handleKeyboardSelection(event: ReactKeyboardEvent<HTMLDivElement>) {
@@ -700,11 +809,10 @@ function Reader({
     }
   }
 
-  function handleSentenceClick(event: ReactMouseEvent<HTMLDivElement>) {
-    if (event.detail >= 2) {
+  function handleReaderClick(event: ReactMouseEvent<HTMLDivElement>) {
+    if (event.target instanceof Element && event.target.closest("mark[data-reader-highlight='true']") && activeHighlight) {
       event.preventDefault();
-      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-      selectWordAtPoint(event.currentTarget, event.target, event.clientX, event.clientY);
+      onSelectText({ text: activeHighlight.text, kind: activeHighlight.kind, highlight: activeHighlight, commit: true, ...toolbarPointFromElement(event.target.closest("mark[data-reader-highlight='true']") as Element) });
       return;
     }
 
@@ -712,16 +820,25 @@ function Reader({
     if (selection && !selection.isCollapsed && selection.toString().trim()) return;
 
     if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    selectWordAtPoint(event.currentTarget, event.target, event.clientX, event.clientY, false);
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     const root = event.currentTarget;
     const target = event.target;
     const x = event.clientX;
     const y = event.clientY;
-    clickTimerRef.current = setTimeout(() => {
-      selectSentenceAtPoint(root, target, x, y);
-    }, 220);
+    longPressTimerRef.current = setTimeout(() => {
+      selectSentenceAtPoint(root, target, x, y, false);
+    }, 420);
   }
 
-  function selectSentenceAtPoint(root: HTMLDivElement, target: EventTarget, x: number, y: number) {
+  function cancelLongPress() {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+  }
+
+  function selectSentenceAtPoint(root: HTMLDivElement, target: EventTarget, x: number, y: number, commit: boolean) {
     if (isIgnoredReaderTarget(target)) return;
     const targetElement = target as Element;
     const selection = window.getSelection();
@@ -753,7 +870,7 @@ function Reader({
     const toolbarPoint = toolbarPointFromRange(range);
     clearReaderHighlight(root);
     window.getSelection()?.removeAllRanges();
-    onSelectText({ text: sentence.text, kind: "sentence", highlight: highlightFromRange(root, range, sentence.text, "sentence", text, sentence.start, sentence.end), ...toolbarPoint });
+    onSelectText({ text: sentence.text, kind: "sentence", highlight: highlightFromRange(root, range, sentence.text, "sentence", text, sentence.start, sentence.end), commit, ...toolbarPoint });
   }
 
   function selectWholeTextBlock(root: HTMLDivElement, block: Element) {
@@ -764,17 +881,17 @@ function Reader({
     const toolbarPoint = toolbarPointFromRange(range);
     clearReaderHighlight(root);
     window.getSelection()?.removeAllRanges();
-    onSelectText({ text, kind: classifySelection(text), highlight: highlightFromRange(root, range, text, classifySelection(text), block.textContent ?? "", 0, block.textContent?.length ?? text.length), ...toolbarPoint });
+    onSelectText({ text, kind: classifySelection(text), highlight: highlightFromRange(root, range, text, classifySelection(text), block.textContent ?? "", 0, block.textContent?.length ?? text.length), commit: true, ...toolbarPoint });
   }
 
   function handleWordDoubleClick(event: ReactMouseEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
     if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-    selectWordAtPoint(event.currentTarget, event.target, event.clientX, event.clientY);
+    selectWordAtPoint(event.currentTarget, event.target, event.clientX, event.clientY, true);
   }
 
-  function selectWordAtPoint(root: HTMLDivElement, target: EventTarget, x: number, y: number) {
+  function selectWordAtPoint(root: HTMLDivElement, target: EventTarget, x: number, y: number, commit: boolean) {
     if (isIgnoredReaderTarget(target)) return;
 
     const caret = caretRangeFromPoint(x, y);
@@ -796,7 +913,7 @@ function Reader({
     const toolbarPoint = toolbarPointFromRange(range);
     clearReaderHighlight(root);
     window.getSelection()?.removeAllRanges();
-    onSelectText({ text: word.text, kind: "word", highlight: highlightFromRange(root, range, word.text, "word", text, word.start, word.end), ...toolbarPoint });
+    onSelectText({ text: word.text, kind: "word", highlight: highlightFromRange(root, range, word.text, "word", text, word.start, word.end), commit, ...toolbarPoint });
   }
 
   return (
@@ -823,8 +940,12 @@ function Reader({
       <div
         ref={articleBodyRef}
         className="article-body"
-        onClick={handleSentenceClick}
+        onClick={handleReaderClick}
         onDoubleClick={handleWordDoubleClick}
+        onPointerDown={handlePointerDown}
+        onPointerUp={cancelLongPress}
+        onPointerLeave={cancelLongPress}
+        onPointerCancel={cancelLongPress}
         onMouseUp={handleManualSelection}
         onKeyUp={handleKeyboardSelection}
         dangerouslySetInnerHTML={{ __html: article.contentHtml }}
@@ -838,6 +959,7 @@ function SelectionToolbar({
   visible,
   requestAnalysis,
   speak,
+  copyText,
   saveSelection,
   focusLearningPanel
 }: {
@@ -845,6 +967,7 @@ function SelectionToolbar({
   visible: boolean;
   requestAnalysis: (text?: string) => Promise<LearningAnalysis | null>;
   speak: (text: string) => void;
+  copyText: (text: string) => void;
   saveSelection: (kind?: "word" | "sentence") => void;
   focusLearningPanel: () => void;
 }) {
@@ -866,6 +989,9 @@ function SelectionToolbar({
       </button>
       <button disabled={isLoading} onClick={() => speak(activeSelection.text)}>
         Speak
+      </button>
+      <button disabled={isLoading} onClick={() => copyText(activeSelection.text)}>
+        Copy
       </button>
       <button disabled={isLoading} onClick={() => saveSelection(saveKind)}>
         Save
@@ -902,6 +1028,13 @@ function toolbarPointFromRange(range: Range) {
   const panelRect = panel?.getBoundingClientRect();
   const rightLimit = panelRect && panelRect.left < window.innerWidth ? Math.max(150, panelRect.left - 170) : Math.max(150, window.innerWidth - 150);
   const left = clamp(rect.left + rect.width / 2, 150, rightLimit);
+  const top = clamp(rect.top - 10, 72, Math.max(72, window.innerHeight - 96));
+  return { x: left, y: top };
+}
+
+function toolbarPointFromElement(element: Element) {
+  const rect = element.getBoundingClientRect();
+  const left = clamp(rect.left + rect.width / 2, 150, Math.max(150, window.innerWidth - 150));
   const top = clamp(rect.top - 10, 72, Math.max(72, window.innerHeight - 96));
   return { x: left, y: top };
 }
@@ -1114,7 +1247,10 @@ function LearningPanel({
   activeSelection,
   analysis,
   requestAnalysis,
+  loadMoreMeanings,
+  loadingMoreMeanings,
   speak,
+  copyText,
   saveSelection
 }: {
   refElement: React.RefObject<HTMLElement | null>;
@@ -1122,7 +1258,10 @@ function LearningPanel({
   activeSelection: ActiveSelection | null;
   analysis: LearningAnalysis | null;
   requestAnalysis: (text?: string) => Promise<LearningAnalysis | null>;
+  loadMoreMeanings: (text?: string) => Promise<void>;
+  loadingMoreMeanings: boolean;
   speak: (text: string) => void;
+  copyText: (text: string) => void;
   saveSelection: (kind?: "word" | "sentence") => void;
 }) {
   return (
@@ -1146,6 +1285,9 @@ function LearningPanel({
             <button className="toolbar-button" onClick={() => speak(selectedText)}>
               Pronounce
             </button>
+            <button className="toolbar-button" onClick={() => copyText(selectedText)}>
+              Copy
+            </button>
             <button className="toolbar-button" onClick={() => saveSelection()}>
               Save
             </button>
@@ -1162,6 +1304,9 @@ function LearningPanel({
             <button className="primary-button" onClick={() => speak(selectedText)}>
               Pronounce
             </button>
+            <button className="toolbar-button" onClick={() => copyText(selectedText)}>
+              Copy
+            </button>
             <button className="toolbar-button" onClick={() => saveSelection()}>
               Save
             </button>
@@ -1177,6 +1322,21 @@ function LearningPanel({
             <p className="muted">{analysis.translationProvider}</p>
             <p>{analysis.translation}</p>
           </div>
+          {analysis.kind === "word" ? (
+            <div className="panel-card analysis-block">
+              <h4>Dictionary</h4>
+              {analysis.wordMeanings.length ? (
+                <WordMeaningsView meanings={analysis.wordMeanings} />
+              ) : (
+                <>
+                  <p className="muted">Fast translation is shown above. Load dictionary meanings only when needed.</p>
+                  <button className="small-button" disabled={loadingMoreMeanings} onClick={() => loadMoreMeanings(analysis.text)}>
+                    {loadingMoreMeanings ? "Loading..." : "Show More Meanings"}
+                  </button>
+                </>
+              )}
+            </div>
+          ) : null}
           <div className="panel-card analysis-block">
             <h4>Explanation</h4>
             <p>{analysis.explanation}</p>
@@ -1220,7 +1380,10 @@ function MobileLearningSheet({
   setDetailsOpen,
   close,
   requestAnalysis,
+  loadMoreMeanings,
+  loadingMoreMeanings,
   speak,
+  copyText,
   saveSelection
 }: {
   open: boolean;
@@ -1231,7 +1394,10 @@ function MobileLearningSheet({
   setDetailsOpen: (open: boolean) => void;
   close: () => void;
   requestAnalysis: (text?: string) => Promise<LearningAnalysis | null>;
+  loadMoreMeanings: (text?: string) => Promise<void>;
+  loadingMoreMeanings: boolean;
   speak: (text: string) => void;
+  copyText: (text: string) => void;
   saveSelection: (kind?: "word" | "sentence") => void;
 }) {
   if (!open || !selectedText || !activeSelection) return null;
@@ -1261,6 +1427,9 @@ function MobileLearningSheet({
             <button className="toolbar-button" disabled={isLoading} onClick={() => speak(selectedText)}>
               Speak
             </button>
+            <button className="toolbar-button" disabled={isLoading} onClick={() => copyText(selectedText)}>
+              Copy
+            </button>
             <button className="toolbar-button" disabled={isLoading} onClick={() => saveSelection()}>
               Save
             </button>
@@ -1279,6 +1448,9 @@ function MobileLearningSheet({
             <button className="primary-button" onClick={() => speak(selectedText)}>
               Speak
             </button>
+            <button className="toolbar-button" onClick={() => copyText(selectedText)}>
+              Copy
+            </button>
             <button className="toolbar-button" onClick={() => saveSelection()}>
               Save
             </button>
@@ -1288,6 +1460,18 @@ function MobileLearningSheet({
           </div>
           {detailsOpen ? (
             <div className="mobile-sheet-details">
+              {analysis.kind === "word" ? (
+                <div className="analysis-block">
+                  <h4>Dictionary</h4>
+                  {analysis.wordMeanings.length ? (
+                    <WordMeaningsView meanings={analysis.wordMeanings} />
+                  ) : (
+                    <button className="small-button" disabled={loadingMoreMeanings} onClick={() => loadMoreMeanings(analysis.text)}>
+                      {loadingMoreMeanings ? "Loading..." : "Show More Meanings"}
+                    </button>
+                  )}
+                </div>
+              ) : null}
               <div className="analysis-block">
                 <h4>Explanation</h4>
                 <p>{analysis.explanation}</p>
@@ -1333,6 +1517,25 @@ function SelectionStateNote({ activeSelection }: { activeSelection: ActiveSelect
       <span>{statusLabel(activeSelection.status)}</span>
       {savedMessage ? <span>{savedMessage}</span> : null}
       {extraMessage ? <span>{extraMessage}</span> : null}
+    </div>
+  );
+}
+
+function WordMeaningsView({ meanings, limit }: { meanings: WordMeaning[]; limit?: number }) {
+  const visible = typeof limit === "number" ? meanings.slice(0, limit) : meanings;
+  return (
+    <div className="word-meanings">
+      {visible.map((meaning) => (
+        <div className="word-meaning" key={`${meaning.partOfSpeech}-${meaning.definition}`}>
+          <div className="row-meta">
+            <span className="meaning-pos">{meaning.partOfSpeech}</span>
+          </div>
+          <p>{meaning.translatedDefinition || meaning.definition}</p>
+          <p className="muted">{meaning.definition}</p>
+          {meaning.example ? <p className="muted">Example: {meaning.example}</p> : null}
+          {meaning.synonyms.length ? <p className="muted">Synonyms: {meaning.synonyms.join(", ")}</p> : null}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1653,10 +1856,21 @@ function LearningItemCard({
   setToast: (toast: string) => void;
 }) {
   const [expanded, setExpanded] = useState(mode === "saved" ? false : false);
+  const [loadingMeanings, setLoadingMeanings] = useState(false);
   const text = itemText(item);
   const answerVisible = mode === "saved" || expanded;
 
   async function setStatus(familiarity: Familiarity) {
+    if (mode === "review" && familiarity === "mastered") {
+      const confirmed = window.confirm("Mark as mastered and delete this saved item from local MagReader?");
+      if (!confirmed) return;
+      const response = await fetch(`${kind === "word" ? "/api/words" : "/api/sentences"}?id=${item.id}`, { method: "DELETE" });
+      const data = await response.json();
+      if (kind === "word") updateWords?.(data.words);
+      else updateSentences?.(data.sentences);
+      setToast("Mastered item deleted.");
+      return;
+    }
     const response = await fetch(kind === "word" ? "/api/words" : "/api/sentences", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -1682,6 +1896,34 @@ function LearningItemCard({
     setToast(kind === "word" ? "Word deleted." : "Sentence deleted.");
   }
 
+  async function loadSavedWordMeanings() {
+    if (kind !== "word" || !("displayWord" in item) || loadingMeanings) return;
+    setLoadingMeanings(true);
+    try {
+      const lookup = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: item.displayWord, mode: "meanings" })
+      });
+      const lookupData = await lookup.json();
+      if (!lookup.ok) throw new Error(lookupData.error ?? "Dictionary lookup failed.");
+      const meanings = (lookupData.meanings ?? []) as WordMeaning[];
+      const response = await fetch("/api/words", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: item.id, action: "meanings", meanings })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not save meanings.");
+      updateWords?.(data.words);
+      setToast(meanings.length ? "Dictionary meanings loaded." : "No dictionary meanings found.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Dictionary lookup failed.");
+    } finally {
+      setLoadingMeanings(false);
+    }
+  }
+
   return (
     <div className={`review-row learning-card ${mode}`}>
       <div className="row-meta">
@@ -1697,6 +1939,7 @@ function LearningItemCard({
       {answerVisible ? (
         <>
           <p className="muted">{item.translation}</p>
+          {"meanings" in item && item.meanings.length ? <WordMeaningsView meanings={item.meanings} limit={mode === "review" ? 1 : expanded ? undefined : 1} /> : null}
           {mode === "saved" || expanded ? <p className="muted">{item.explanation}</p> : null}
         </>
       ) : (
@@ -1709,6 +1952,11 @@ function LearningItemCard({
           <p>Created: {new Date(item.createdAt).toLocaleString()}</p>
           <p>Updated: {new Date(item.updatedAt).toLocaleString()}</p>
           {"count" in item ? <p>Saved count: {item.count}</p> : null}
+          {"meanings" in item && !item.meanings.length ? (
+            <button className="small-button" disabled={loadingMeanings} onClick={loadSavedWordMeanings}>
+              {loadingMeanings ? "Loading..." : "Show More Meanings"}
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div className="toolbar" style={{ justifyContent: "flex-start" }}>
@@ -1766,12 +2014,8 @@ function SettingsView({ settings, updateSettings }: { settings: ReaderSettings; 
             value={settings.translationProvider}
             onChange={(event) => updateSettings({ translationProvider: event.target.value as ReaderSettings["translationProvider"] })}
           >
-            <option value="mymemory">MyMemory Free</option>
-            <option value="baidu">Baidu API</option>
-            <option value="netease">NetEase Youdao API</option>
-            <option value="microsoft">Microsoft Translator</option>
             <option value="google">Google Public</option>
-            <option value="mock">Mock</option>
+            <option value="mymemory">MyMemory Free</option>
           </select>
         </label>
         <label className="saved-row">

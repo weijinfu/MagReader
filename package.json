@@ -1,7 +1,10 @@
 {
   "name": "magreader",
   "version": "0.1.0",
-  "private": true,
+  "description": "Local-first RSS reading and language-learning app for Web and iOS.",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
   "scripts": {
     "dev": "next dev -H 127.0.0.1",
     "build": "next build",
@@ -10,13 +13,18 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:init": "tsx scripts/init-db.ts"
+    "verify": "npm run typecheck && npm test && npm run lint && npm run build",
+    "db:init": "tsx scripts/init-db.ts",
+    "ios:build": "xcodebuild -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'generic/platform=iOS Simulator' build",
+    "ios:test": "xcodebuild -project ios/MagReader/MagReader.xcodeproj -scheme MagReader -destination 'platform=iOS Simulator,name=iPhone 17' test"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
     "better-sqlite3": "^11.8.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "http-proxy-agent": "^7.0.2",
+    "https-proxy-agent": "^7.0.6",
     "jsdom": "^25.0.1",
     "next": "^15.1.6",
     "react": "^19.0.0",

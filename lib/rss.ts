@@ -1,12 +1,22 @@
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
+import http from "node:http";
+import https from "node:https";
+import { HttpProxyAgent } from "http-proxy-agent";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import Parser from "rss-parser";
 import { archiveMissingFeedArticles, listFeeds, logIngestion, updateFeed, upsertArticle } from "@/lib/db";
 import { rateArticleDifficulty } from "@/lib/ai";
 import { stripHtml } from "@/lib/utils";
 
+const rssTimeoutMs = Number.parseInt(process.env.RSS_TIMEOUT_MS ?? "12000", 10);
+const requestTimeoutMs = Number.isFinite(rssTimeoutMs) && rssTimeoutMs > 0 ? rssTimeoutMs : 12000;
+const rssProxyUrl = process.env.RSS_PROXY_URL?.trim();
+const httpProxyAgent = rssProxyUrl ? new HttpProxyAgent(rssProxyUrl) : null;
+const httpsProxyAgent = rssProxyUrl ? new HttpsProxyAgent(rssProxyUrl) : null;
+
 const parser = new Parser({
-  timeout: 12000,
+  timeout: requestTimeoutMs,
   customFields: {
     item: ["content:encoded", "content"]
   }
@@ -30,7 +40,8 @@ export async function refreshAllFeeds() {
 
 export async function refreshFeed(feedId: number, url: string) {
   try {
-    const parsed = await parser.parseURL(url);
+    const feedXml = await fetchText(url);
+    const parsed = await parser.parseString(feedXml);
     let inserted = 0;
     const currentUrls: string[] = [];
     for (const item of parsed.items as ParserItem[]) {
@@ -72,13 +83,7 @@ export async function refreshFeed(feedId: number, url: string) {
 async function extractArticle(url: string, item: ParserItem) {
   const feedHtml = item["content:encoded"] || item.content || item.summary || "";
   try {
-    const response = await fetch(url, {
-      headers: {
-        "user-agent": "MagReader/0.1 (+local learning reader)"
-      },
-      signal: AbortSignal.timeout(12000)
-    });
-    const html = await response.text();
+    const html = await fetchText(url);
     const dom = new JSDOM(html, { url });
     const readable = new Readability(dom.window.document).parse();
     if (readable?.content && readable.textContent.trim().length > 300) {
@@ -96,6 +101,73 @@ async function extractArticle(url: string, item: ParserItem) {
     html: feedHtml || `<p>${escapeHtml(fallbackText)}</p>`,
     text: fallbackText
   };
+}
+
+async function fetchText(url: string): Promise<string> {
+  if (!rssProxyUrl) return fetchTextAttempt(url, false);
+
+  try {
+    return await fetchTextAttempt(url, true);
+  } catch (error) {
+    if (!isProxyConnectionError(error)) throw error;
+    return fetchTextAttempt(url, false);
+  }
+}
+
+async function fetchTextAttempt(url: string, useProxy: boolean, redirectCount = 0): Promise<string> {
+  if (redirectCount > 5) throw new Error("Too many redirects");
+
+  const target = new URL(url);
+  const transport = target.protocol === "http:" ? http : https;
+  const proxyAgent = useProxy ? (target.protocol === "http:" ? httpProxyAgent : httpsProxyAgent) : null;
+
+  return new Promise((resolve, reject) => {
+    const request = transport.get(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        headers: {
+          "user-agent": "MagReader/0.1 (+local learning reader)",
+          accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8"
+        },
+        agent: proxyAgent ?? undefined,
+        timeout: requestTimeoutMs
+      },
+      (response) => {
+        const location = response.headers.location;
+        if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && location) {
+          response.resume();
+          fetchTextAttempt(new URL(location, target).toString(), useProxy, redirectCount + 1).then(resolve, reject);
+          return;
+        }
+
+        if (response.statusCode && response.statusCode >= 300) {
+          response.resume();
+          reject(new Error(`Status code ${response.statusCode}`));
+          return;
+        }
+
+        response.setEncoding("utf8");
+        let body = "";
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () => resolve(body));
+      }
+    );
+
+    request.on("timeout", () => {
+      request.destroy(new Error(`Request timed out after ${requestTimeoutMs}ms`));
+    });
+    request.on("error", reject);
+  });
+}
+
+function isProxyConnectionError(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  return ["ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ENETUNREACH", "ETIMEDOUT"].includes(String(error.code));
 }
 
 function sanitizeReadableHtml(html: string) {

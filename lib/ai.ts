@@ -1,6 +1,7 @@
 import type { LearningAnalysis } from "@/lib/types";
 import { baiduTranslate } from "@/lib/baidu-translate";
 import { googleTranslate } from "@/lib/google-translate";
+import { lookupDictionaryMeanings } from "@/lib/dictionary";
 import { getSettings } from "@/lib/db";
 import { microsoftTranslate } from "@/lib/microsoft-translate";
 import { myMemoryTranslate } from "@/lib/mymemory-translate";
@@ -21,27 +22,52 @@ export async function analyzeTextWithGoogle(text: string): Promise<LearningAnaly
 export async function analyzeTextWithProvider(text: string): Promise<LearningAnalysis> {
   const clean = text.trim().replace(/\s+/g, " ");
   const provider = getSettings().translationProvider || process.env.MAGREADER_TRANSLATION_PROVIDER?.toLowerCase() || "mymemory";
+  const engine = translationEngine(provider);
+  const translation = await engine.translate(clean);
+  return buildAnalysis(clean, translation, engine.label);
+}
+
+export async function loadMoreWordMeanings(word: string) {
+  const clean = word.trim().replace(/\s+/g, " ");
+  if (!isLikelyWord(clean)) return [];
+  const provider = getSettings().translationProvider || process.env.MAGREADER_TRANSLATION_PROVIDER?.toLowerCase() || "google";
+  const engine = translationEngine(provider);
+  const meanings = await lookupDictionaryMeanings(clean);
+  const translated = await translateDefinitions(meanings.map((meaning) => meaning.definition), engine.translate);
+  return meanings.map((meaning, index) => ({
+    ...meaning,
+    translatedDefinition: translated[index] || null
+  }));
+}
+
+function translationEngine(provider: string): { label: string; translate: (text: string) => Promise<string> } {
   if (provider === "mymemory") {
-    const translation = await myMemoryTranslate(clean);
-    return buildAnalysis(clean, translation, "MyMemory Translate");
+    return { label: "MyMemory Translate", translate: myMemoryTranslate };
   }
   if (provider === "baidu") {
-    const translation = await baiduTranslate(clean);
-    return buildAnalysis(clean, translation, "Baidu Translate");
+    return { label: "Baidu Translate", translate: baiduTranslate };
   }
   if (provider === "netease" || provider === "youdao") {
-    const translation = await youdaoTranslate(clean);
-    return buildAnalysis(clean, translation, "NetEase Youdao Translate");
+    return { label: "NetEase Youdao Translate", translate: youdaoTranslate };
   }
   if (provider === "microsoft") {
-    const translation = await microsoftTranslate(clean);
-    return buildAnalysis(clean, translation, "Microsoft Translator");
+    return { label: "Microsoft Translator", translate: microsoftTranslate };
   }
   if (provider === "mock") {
-    return buildAnalysis(clean, wordOrSentenceMockTranslation(clean), "Mock");
+    return { label: "Mock", translate: async (text: string) => wordOrSentenceMockTranslation(text) };
   }
-  const translation = await googleTranslate(clean);
-  return buildAnalysis(clean, translation, "Google Translate");
+  return { label: "Google Translate", translate: googleTranslate };
+}
+
+async function translateDefinitions(definitions: string[], translate: (text: string) => Promise<string>) {
+  const output: string[] = [];
+  const batchSize = 12;
+  for (let index = 0; index < definitions.length; index += batchSize) {
+    const batch = definitions.slice(index, index + batchSize);
+    const translated = await Promise.all(batch.map((definition) => translate(definition).catch(() => "")));
+    output.push(...translated);
+  }
+  return output;
 }
 
 function buildAnalysis(clean: string, translation: string, translationProvider: string): LearningAnalysis {
@@ -55,6 +81,7 @@ function buildAnalysis(clean: string, translation: string, translationProvider: 
     text: clean,
     translation,
     translationProvider,
+    wordMeanings: [],
     explanation: wordMode
       ? `${clean} is explained as a useful context word. Notice its part of speech and the phrase it appears in before memorizing a Chinese equivalent.`
       : "这句话可以先找主句，再看从句、插入语或介词短语如何补充时间、原因、转折或条件信息。",
