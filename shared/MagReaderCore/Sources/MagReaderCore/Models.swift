@@ -94,7 +94,7 @@ struct Article: Identifiable, Hashable {
     var updatedAt: Date
 }
 
-struct SavedWord: Identifiable, Hashable {
+struct SavedWord: Identifiable, Hashable, Codable {
     var id: Int64
     var word: String
     var displayWord: String
@@ -110,7 +110,7 @@ struct SavedWord: Identifiable, Hashable {
     var updatedAt: Date
 }
 
-struct SavedSentence: Identifiable, Hashable {
+struct SavedSentence: Identifiable, Hashable, Codable {
     var id: Int64
     var text: String
     var translation: String

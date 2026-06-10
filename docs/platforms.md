@@ -41,13 +41,32 @@ Data:
 iOS app sandbox SQLite
 ```
 
+## macOS
+
+Status: active.
+
+Use the macOS app when you want a native desktop workflow with local data, native speech, keyboard commands, and CSV/JSON export.
+
+Open:
+
+```bash
+open macos/MagReaderMac.xcodeproj
+```
+
+Build with Xcode Product > Build. See `macos/README.md`.
+
+Data:
+
+```text
+~/Library/Application Support/MagReaderMac/magreader-macos.db
+```
+
 ## Planned Or Possible Platforms
 
 These are not implemented:
 
-- macOS native app.
 - Android app.
 - Desktop packaged Web app.
 - Cloud sync service.
 
-Add a platform only when there is a clear user workflow that Web/iOS cannot cover well.
+Add a platform only when there is a clear user workflow that Web/iOS/macOS cannot cover well.

@@ -1,6 +1,8 @@
-import AVFoundation
 import Combine
 import Foundation
+#if os(iOS)
+import AVFoundation
+#endif
 
 @MainActor
 protocol FeedRefreshService: AnyObject {
@@ -368,6 +370,7 @@ final class DictionaryAPIService: DictionaryLookupService {
     }
 }
 
+#if os(iOS)
 @MainActor
 final class AVSpeechService: NSObject, SpeechService, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
@@ -393,6 +396,7 @@ final class AVSpeechService: NSObject, SpeechService, AVSpeechSynthesizerDelegat
         synthesizer.stopSpeaking(at: .immediate)
     }
 }
+#endif
 
 private struct MyMemoryResponse: Decodable {
     struct ResponseData: Decodable {

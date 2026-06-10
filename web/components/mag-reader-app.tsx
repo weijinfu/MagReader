@@ -355,7 +355,7 @@ export function MagReaderApp() {
     <div className={`app-shell ${sidebarCollapsed ? "nav-collapsed" : ""} ${mobileSheetOpen ? "mobile-sheet-active" : ""}`}>
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         <div className="brand">
-          <div className="brand-mark">M</div>
+          <img className="brand-mark" src="/icon.png" alt="" aria-hidden="true" />
           <span>MagReader</span>
           <button
             className="collapse-button"

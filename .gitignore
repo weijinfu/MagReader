@@ -19,7 +19,10 @@ web/data/*.db
 web/data/*.db-*
 .playwright-cli
 output/playwright
+output/
 web/output/playwright
+docs/assets/screenshots/
+web/docs/assets/screenshots/
 *.log
 tsconfig.tsbuildinfo
 web/tsconfig.tsbuildinfo
@@ -28,6 +31,12 @@ ios/**/*.xcuserstate
 ios/**/xcuserdata/
 ios/MagReader.xcodeproj/project.xcworkspace/
 ios/MagReader.xcodeproj/xcuserdata/
+macos/DerivedData
+macos/**/*.xcuserstate
+macos/**/xcuserdata/
+macos/MagReaderMac.xcodeproj/project.xcworkspace/
+macos/MagReaderMac.xcodeproj/xcuserdata/
+shared/MagReaderCore/.build
 docs/assets/screenshots/tmp/
 plan.md
 CODE_OF_CONDUCT.md

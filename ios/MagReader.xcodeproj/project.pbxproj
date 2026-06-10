@@ -39,11 +39,11 @@
 
 /* Begin PBXFileReference section */
 		3A2000010000000000000001 /* MagReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MagReaderApp.swift; sourceTree = "<group>"; };
-		3A2000010000000000000002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		3A2000010000000000000003 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
-		3A2000010000000000000004 /* SQLiteDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteDatabase.swift; sourceTree = "<group>"; };
-		3A2000010000000000000005 /* Services.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services.swift; sourceTree = "<group>"; };
-		3A2000010000000000000006 /* RSSParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSParser.swift; sourceTree = "<group>"; };
+		3A2000010000000000000002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Models.swift; path = ../../shared/MagReaderCore/Sources/MagReaderCore/Models.swift; sourceTree = "<group>"; };
+		3A2000010000000000000003 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Utilities.swift; path = ../../shared/MagReaderCore/Sources/MagReaderCore/Utilities.swift; sourceTree = "<group>"; };
+		3A2000010000000000000004 /* SQLiteDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SQLiteDatabase.swift; path = ../../shared/MagReaderCore/Sources/MagReaderCore/SQLiteDatabase.swift; sourceTree = "<group>"; };
+		3A2000010000000000000005 /* Services.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Services.swift; path = ../../shared/MagReaderCore/Sources/MagReaderCore/Services.swift; sourceTree = "<group>"; };
+		3A2000010000000000000006 /* RSSParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RSSParser.swift; path = ../../shared/MagReaderCore/Sources/MagReaderCore/RSSParser.swift; sourceTree = "<group>"; };
 		3A2000010000000000000007 /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
 		3A2000010000000000000008 /* ReaderWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderWebView.swift; sourceTree = "<group>"; };
 		3A2000010000000000000009 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
